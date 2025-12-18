@@ -1,0 +1,21 @@
+# Windows Agent Configuration Template
+# =====================================
+# Copy this file to agent_config.yaml and fill in your values.
+# The actual agent_config.yaml is GITIGNORED for security.
+
+server:
+  ip: YOUR_SERVER_IP          # e.g., 192.168.1.100
+  port: 9000
+  remember: true
+  tls_enabled: false
+  tls_cert_path: ""
+  tls_verify: true
+
+# Authentication - Get credentials from admin in Agent Users page
+auth:
+  enabled: true               # Set to true to enable authentication
+  web_port: 8080
+  username: "YOUR_USERNAME"   # Agent username (created by admin)
+  password: "YOUR_PASSWORD"   # Agent password (created by admin)
+
+# For full configuration options, see the README.md

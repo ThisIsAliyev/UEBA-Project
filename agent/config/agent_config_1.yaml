@@ -1,0 +1,261 @@
+server:
+  ip: 192.168.56.101
+  port: 9000
+  remember: true
+  # TLS encryption for agent-server communication
+  tls_enabled: false  # Set to true when TLS is configured
+  tls_cert_path: ""   # Path to server certificate (for validation)
+  tls_verify: true    # Verify server certificate (set false for self-signed in dev)
+
+# Agent Authentication (get credentials from admin in Agent Users page)
+# When enabled, the agent will authenticate with the web server
+# and appear in the Endpoint Management page
+auth:
+  enabled: false
+  web_port: 8080    # Web server port (for authentication)
+  username: ""      # Agent username (created by admin)
+  password: ""      # Agent password (created by admin)
+
+# Sysmon event collection
+sysmon:
+  channel: Microsoft-Windows-Sysmon/Operational
+  poll_interval_seconds: 5
+  max_events: 200
+
+# Windows Security event collection (requires admin privileges)
+# Contains logon/logoff, privilege use, policy changes
+security:
+  enabled: true
+  poll_interval_seconds: 5
+  max_events: 100
+  # capture_all: false  # Set to true to capture ALL security events
+  # event_ids: []       # Custom list of event IDs to capture
+
+# Windows Application log (no admin required)
+# Contains application events, including custom eventcreate events
+application:
+  enabled: true
+  poll_interval_seconds: 5
+  max_events: 100
+
+# Windows System log (no admin required)
+# Contains system component events, drivers, services
+system_log:
+  enabled: true
+  poll_interval_seconds: 5
+  max_events: 100
+
+# Telemetry settings for reliable log forwarding
+telemetry:
+  # Send interval: how often to flush batches to server (seconds)
+  send_interval_seconds: 1
+  # GUI refresh interval: how often to update GUI stats (seconds)
+  gui_refresh_seconds: 1
+  # Batch size: maximum events per batch (capped at 200 by safety limits)
+  batch_size: 200
+  
+  # SPOOL SETTINGS
+  # When server is down, events can be queued to disk for later delivery.
+  # Set spool_enabled=false for PURE REAL-TIME mode (events dropped if server unreachable)
+  spool_enabled: false  # RECOMMENDED: Disable to prevent flood after server restart
+  max_spool_mb: 200
+  spool_dir: "%ProgramData%\\UEBAAgent\\spool"
+  state_file: "%ProgramData%\\UEBAAgent\\state.json"
+
+# FLOOD PREVENTION SETTINGS
+# Controls how events are collected to prevent server overload
+collection:
+  # REAL-TIME MODE (recommended for production)
+  # If true: on first run, agent queries current max RecordId and uses it as baseline
+  #          NO historical events are sent - only new events from that point forward
+  # If false: agent will use lookback_minutes or legacy behavior
+  start_from_now: true
+  
+  # LOOKBACK MODE (alternative to start_from_now)
+  # If set (and start_from_now=false): fetch only events from last N minutes on first run
+  # Uses source-side StartTime filter for efficiency (no in-memory filtering)
+  # Set to null/0 to disable
+  lookback_minutes: null
+
+# ============================================
+# SYSMON FLOOD CONTROL FILTERS (MVP Core Telemetry)
+# ============================================
+# These filters reduce noise from high-volume Sysmon events
+# while preserving security-relevant telemetry
+
+sysmon_filters:
+  # Sysmon ID 3 (NetworkConnect) - VERY HIGH VOLUME
+  # Only collect network events from abuse-prone processes
+  network_connect:
+    enabled: true
+    include_processes:
+      - "powershell.exe"
+      - "pwsh.exe"
+      - "cmd.exe"
+      - "wscript.exe"
+      - "cscript.exe"
+      - "mshta.exe"
+      - "rundll32.exe"
+      - "regsvr32.exe"
+      - "certutil.exe"
+      - "bitsadmin.exe"
+      - "msiexec.exe"
+      # Office applications (macro-based attacks)
+      - "winword.exe"
+      - "excel.exe"
+      - "powerpnt.exe"
+      - "outlook.exe"
+      - "msaccess.exe"
+      # Browsers (for download detection)
+      - "chrome.exe"
+      - "firefox.exe"
+      - "msedge.exe"
+      - "iexplore.exe"
+    # Exclude common noisy destinations (optional)
+    exclude_dest_ports: []  # e.g., [80, 443] to reduce web traffic noise
+  
+  # Sysmon ID 11 (FileCreate) - HIGH VOLUME
+  # Only collect file creation in risky paths with risky extensions
+  file_create:
+    enabled: true
+    include_paths:
+      - "\\Downloads\\"
+      - "\\Temp\\"
+      - "\\AppData\\Local\\Temp\\"
+      - "\\Windows\\Temp\\"
+      - "\\Startup\\"
+      - "\\Start Menu\\Programs\\Startup\\"
+      - "\\ProgramData\\"
+      - "\\Users\\Public\\"
+    include_extensions:
+      - ".exe"
+      - ".dll"
+      - ".ps1"
+      - ".bat"
+      - ".cmd"
+      - ".vbs"
+      - ".js"
+      - ".hta"
+      - ".scr"
+      - ".pif"
+      - ".zip"
+      - ".7z"
+      - ".rar"
+      - ".iso"
+      - ".img"
+      - ".lnk"
+  
+  # Sysmon ID 22 (DNSQuery) - VERY HIGH VOLUME
+  # Only collect DNS queries from suspicious processes or to suspicious TLDs
+  dns_query:
+    enabled: true
+    include_processes:
+      - "powershell.exe"
+      - "pwsh.exe"
+      - "cmd.exe"
+      - "wscript.exe"
+      - "cscript.exe"
+      - "mshta.exe"
+      - "rundll32.exe"
+    # Suspicious TLDs to always capture
+    include_tlds:
+      - ".tk"
+      - ".ml"
+      - ".ga"
+      - ".cf"
+      - ".gq"
+      - ".xyz"
+      - ".top"
+      - ".pw"
+      - ".cc"
+      - ".su"
+    # Exclude common CDN/cloud domains
+    exclude_domains:
+      - "microsoft.com"
+      - "windows.com"
+      - "windowsupdate.com"
+      - "google.com"
+      - "googleapis.com"
+      - "gstatic.com"
+
+# TIME DRIFT DETECTION
+# Detects if Windows system clock is wrong (e.g., AM/PM mismatch)
+time_drift:
+  # Enable time drift detection at agent startup
+  enabled: true
+  # Warning threshold in seconds (default 5 minutes)
+  warning_threshold_seconds: 300
+  # If drift detected, force RecordId-only mode (disable time-window filtering)
+  use_recordid_on_drift: true
+
+
+# Channel configuration (enable/disable specific Windows Event Log channels)
+# Maximum telemetry collection for UEBA detection
+channels:
+  # Core channels (must-collect for UEBA)
+  - name: "Microsoft-Windows-Sysmon/Operational"
+    enabled: true
+    source_name: "SYSMON"
+  - name: "Security"
+    enabled: true
+    source_name: "WINDOWS_SECURITY"
+    capture_all: true  # Capture ALL security events including 4800/4801 (lock/unlock)
+  - name: "System"
+    enabled: true
+    source_name: "WINDOWS_SYSTEM"
+  
+  # PowerShell activity
+  - name: "Microsoft-Windows-PowerShell/Operational"
+    enabled: true
+    source_name: "POWERSHELL"
+  
+  # WMI activity
+  - name: "Microsoft-Windows-WMI-Activity/Operational"
+    enabled: true
+    source_name: "WMI"
+  
+  # Task Scheduler
+  - name: "Microsoft-Windows-TaskScheduler/Operational"
+    enabled: true
+    source_name: "TASKSCHEDULER"
+  
+  # Windows Defender
+  - name: "Microsoft-Windows-Windows Defender/Operational"
+    enabled: true
+    source_name: "DEFENDER"
+  
+  # Windows Firewall
+  - name: "Microsoft-Windows-Windows Firewall With Advanced Security/Firewall"
+    enabled: true
+    source_name: "FIREWALL"
+  
+  # RDP/Session events
+  - name: "Microsoft-Windows-TerminalServices-LocalSessionManager/Operational"
+    enabled: true
+    source_name: "RDP_LOCAL"
+  - name: "Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational"
+    enabled: true
+    source_name: "RDP_REMOTE"
+  
+  # BITS downloads
+  - name: "Microsoft-Windows-Bits-Client/Operational"
+    enabled: true
+    source_name: "BITS"
+  
+  # AppLocker
+  - name: "Microsoft-Windows-AppLocker/EXE and DLL"
+    enabled: true
+    source_name: "APPLOCKER_EXE"
+  - name: "Microsoft-Windows-AppLocker/MSI and Script"
+    enabled: true
+    source_name: "APPLOCKER_MSI"
+  
+  # Code Integrity
+  - name: "Microsoft-Windows-CodeIntegrity/Operational"
+    enabled: true
+    source_name: "CODE_INTEGRITY"
+  
+  # Application log (optional, can be noisy)
+  - name: "Application"
+    enabled: false
+    source_name: "WINDOWS_APPLICATION"

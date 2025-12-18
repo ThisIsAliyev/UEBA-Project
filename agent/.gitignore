@@ -1,0 +1,37 @@
+# Environment variables (NEVER COMMIT!)
+.env
+.env.local
+.env.*.local
+
+# Config files with credentials
+config/agent_config.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# State and spool data
+*.json
+spool/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
