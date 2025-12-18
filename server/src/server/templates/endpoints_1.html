@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Endpoint Management - UEBA Dashboard</title>
+    
+    <!-- Theme initialization - MUST be first to prevent flash -->
+    <script>
+        (function() {
+            var savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        
+        .page-title-section h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .page-title-section p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-family: var(--font-sans);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        
+        .btn-primary {
+            background: var(--accent-cyan);
+            border: none;
+            color: #000;
+        }
+        
+        .btn-primary:hover {
+            background: #00b8e6;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--border-hover);
+        }
+        
+        /* Stats row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .stat-icon.online { background: rgba(52, 168, 83, 0.15); }
+        .stat-icon.offline { background: rgba(244, 67, 54, 0.15); }
+        .stat-icon.total { background: rgba(0, 212, 255, 0.15); }
+        .stat-icon.groups { background: rgba(255, 176, 32, 0.15); }
+        
+        .stat-info h3 {
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .stat-info h3.green { color: #34a853; }
+        .stat-info h3.red { color: #f44336; }
+        .stat-info h3.cyan { color: var(--accent-cyan); }
+        .stat-info h3.amber { color: var(--accent-amber); }
+        
+        .stat-info p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        
+        /* Content grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 24px;
+        }
+        
+        @media (max-width: 1024px) {
+            .content-grid { grid-template-columns: 1fr; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        /* Card */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        /* Agents table */
+        .agents-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .agents-table th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            background: var(--bg-card-alt);
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .agents-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 13px;
+        }
+        
+        .agents-table tbody tr {
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        
+        .agents-table tbody tr:hover {
+            background: var(--bg-hover);
+        }
+        
+        .agents-table tbody tr.dragging {
+            opacity: 0.5;
+        }
+        
+        .agent-name {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .agent-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: var(--bg-card-alt);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        
+        .agent-name-text {
+            font-weight: 500;
+        }
+        
+        .agent-ip {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .status-online {
+            background: rgba(52, 168, 83, 0.15);
+            color: #34a853;
+        }
+        
+        .status-offline {
+            background: rgba(244, 67, 54, 0.15);
+            color: #f44336;
+        }
+        
+        .status-pending {
+            background: rgba(255, 176, 32, 0.15);
+            color: var(--accent-amber);
+        }
+        
+        .status-approved {
+            background: rgba(52, 168, 83, 0.15);
+            color: #34a853;
+        }
+        
+        .status-declined {
+            background: rgba(244, 67, 54, 0.15);
+            color: #f44336;
+        }
+        
+        .status-revoked {
+            background: rgba(158, 158, 158, 0.15);
+            color: #9e9e9e;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .badge-group {
+            background: rgba(0, 229, 212, 0.1);
+            color: var(--accent-teal);
+        }
+        
+        /* Groups sidebar */
+        .groups-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .group-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--bg-card-alt);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .group-item:hover {
+            border-color: var(--accent-cyan);
+        }
+        
+        .group-item.drop-target {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 212, 255, 0.05);
+            border-style: dashed;
+        }
+        
+        .group-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .group-icon {
+            font-size: 18px;
+        }
+        
+        .group-name {
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .group-count {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        
+        .group-actions {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .icon-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .icon-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+        
+        /* Add group form */
+        .add-group-form {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .add-group-form input {
+            flex: 1;
+            padding: 8px 12px;
+            background: var(--bg-card-alt);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            font-size: 13px;
+        }
+        
+        .add-group-form input:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+        }
+        
+        .add-group-form button {
+            padding: 8px 16px;
+            background: var(--accent-cyan);
+            border: none;
+            border-radius: 6px;
+            color: #000;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        
+        .modal-body {
+            padding: 24px;
+        }
+        
+        /* Form styles */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        /* Rules section */
+        .rules-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .rules-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        .rule-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .rule-item:last-child {
+            border-bottom: none;
+        }
+        
+        .rule-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .rule-icon {
+            font-size: 18px;
+        }
+        
+        .rule-name {
+            font-size: 14px;
+        }
+        
+        /* Toggle switch */
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+        
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-card-alt);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            transition: 0.2s;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 2px;
+            bottom: 2px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+        
+        .toggle input:checked + .toggle-slider {
+            background: var(--accent-cyan);
+            border-color: var(--accent-cyan);
+        }
+        
+        .toggle input:checked + .toggle-slider:before {
+            background: #000;
+            transform: translateX(20px);
+        }
+        
+        .toggle input:disabled + .toggle-slider {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .empty-state-title {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        /* Nav breadcrumb */
+        .nav-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 24px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 24px;
+            border-radius: 12px;
+        }
+        
+        .nav-breadcrumb a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        
+        .nav-breadcrumb a:hover {
+            color: var(--accent-cyan);
+        }
+        
+        .nav-breadcrumb .separator {
+            color: var(--text-muted);
+        }
+        
+        .nav-breadcrumb .current {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        .controlled-notice {
+            background: rgba(255, 176, 32, 0.1);
+            border: 1px solid rgba(255, 176, 32, 0.3);
+            color: var(--accent-amber);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 13px;
+        }
+        
+        .alert-info {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: var(--accent-cyan);
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+        
+        /* Toast Notification */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .toast {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px 20px;
+            min-width: 300px;
+            max-width: 400px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideInRight 0.3s ease-out;
+            font-size: 14px;
+        }
+        
+        .toast.success {
+            border-left: 4px solid #34a853;
+        }
+        
+        .toast.error {
+            border-left: 4px solid #f44336;
+        }
+        
+        .toast.warning {
+            border-left: 4px solid var(--accent-amber);
+        }
+        
+        .toast-icon {
+            font-size: 20px;
+        }
+        
+        .toast-message {
+            flex: 1;
+        }
+        
+        .toast-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0;
+            line-height: 1;
+        }
+        
+        .toast-close:hover {
+            color: var(--text-primary);
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        /* Sidebar styling for consistency */
+        .sidebar-mini {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 72px;
+            height: 100vh;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px 0;
+            z-index: 100;
+        }
+        .sidebar-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-teal));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-bottom: 24px;
+        }
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+            padding: 0 12px;
+        }
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .sidebar-nav a:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+        .sidebar-nav a.active {
+            background: rgba(0, 212, 255, 0.1);
+            color: var(--accent-cyan);
+        }
+        .sidebar-bottom {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 0 12px;
+        }
+        .theme-toggle-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            background: var(--bg-card-alt);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        .theme-toggle-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+    </style>
+</head>
+<body>
+    <div class="main-wrapper" style="margin-left: 0; max-width: 100%;">
+        <div class="page-content">
+            <div class="nav-breadcrumb" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <a href="/" style="display: flex; align-items: center; gap: 8px; color: var(--accent-cyan); text-decoration: none; font-weight: 500;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 12H5M12 19l-7-7 7-7"/>
+                        </svg>
+                        Back to Dashboard
+                    </a>
+                    <span style="color: var(--text-muted);">/</span>
+                    <span style="color: var(--text-primary); font-weight: 600;">Endpoint Management</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <button class="icon-btn" id="themeToggle" title="Toggle Theme" style="padding: 8px; border-radius: 8px; background: var(--bg-card-alt); border: 1px solid var(--border-color); cursor: pointer;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" id="themeIcon">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                        </svg>
+                    </button>
+                    <a href="/logout" style="color: var(--text-secondary); text-decoration: none; font-size: 13px;">Logout ({{ user.username }})</a>
+                </div>
+            </div>
+            
+            {% if is_onboarding %}
+            <div class="alert-info">
+                <strong>Setup Complete!</strong> Your agents can now connect. Create credentials in 
+                <a href="/agent-users" style="color: #fff;">Agent Users</a> and configure your agents.
+            </div>
+            {% endif %}
+            
+            {% set pending_count = connected_agents | selectattr('status', 'equalto', 'pending') | list | count %}
+            {% if pending_count > 0 %}
+            <div style="background: rgba(255, 176, 32, 0.15); border: 1px solid rgba(255, 176, 32, 0.3); color: var(--accent-amber); padding: 16px 20px; border-radius: 8px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                    <div>
+                        <strong style="font-size: 14px;">New Agent Connection Request</strong>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">
+                            {{ pending_count }} agent(s) waiting for approval. Click on the agent row below and use the <strong>Approve</strong> or <strong>Decline</strong> buttons.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="page-header">
+                <div class="page-title-section">
+                    <h1>Endpoint Management</h1>
+                    <p>Monitor connected agents and manage detection rules</p>
+                </div>
+                <div class="header-actions">
+                    <a href="/agent-users" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                        Manage Agent Users
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon total">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="1.5">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                            <line x1="8" y1="21" x2="16" y2="21"/>
+                            <line x1="12" y1="17" x2="12" y2="21"/>
+                        </svg>
+                    </div>
+                    <div class="stat-info">
+                        <h3 class="cyan">{{ endpoint_stats.total_agents }}</h3>
+                        <p>Total Agents</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon online">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#34a853" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </div>
+                    <div class="stat-info">
+                        <h3 class="green">{{ endpoint_stats.online_agents }}</h3>
+                        <p>Online</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon offline">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f44336" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                    </div>
+                    <div class="stat-info">
+                        <h3 class="red">{{ endpoint_stats.offline_agents }}</h3>
+                        <p>Offline</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon groups">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent-amber)" stroke-width="1.5">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
+                    </div>
+                    <div class="stat-info">
+                        <h3 class="amber">{{ endpoint_stats.groups }}</h3>
+                        <p>Groups</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="content-grid">
+                <!-- Main content: Connected Agents -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Connected Agents</span>
+                        <span style="font-size: 13px; color: var(--text-muted);">
+                            Drag agents to groups on the right
+                        </span>
+                    </div>
+                    <div class="card-body" style="padding: 0;">
+                        {% if connected_agents %}
+                        <table class="agents-table">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Agent</th>
+                                    <th>OS</th>
+                                    <th>Last Seen</th>
+                                    <th>Events</th>
+                                    <th>Group</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agentsTableBody">
+                                {% for agent in connected_agents %}
+                                <tr draggable="true" 
+                                    data-agent-id="{{ agent.id }}"
+                                    ondragstart="handleDragStart(event, {{ agent.id }})"
+                                    ondragend="handleDragEnd(event)"
+                                    onclick="openAgentDetail({{ agent.id }})">
+                                    <td>
+                                        <span class="status-badge status-{{ agent.status }}">
+                                            {{ agent.status | title }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="agent-name">
+                                            <div class="agent-icon">
+                                                {% if agent.os_type == 'windows' %}<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+                                                {% elif agent.os_type == 'linux' %}<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+                                                {% elif agent.os_type == 'macos' %}<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                                                {% else %}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>{% endif %}
+                                            </div>
+                                            <div>
+                                                <div class="agent-name-text">{{ agent.hostname }}</div>
+                                                <div class="agent-ip">{{ agent.ip_address }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ agent.os_type | title }}</td>
+                                    <td class="text-muted" style="font-size: 12px;" title="{{ agent.last_seen }} (UTC)">
+                                                        <span class="last-seen-time" data-utc="{{ agent.last_seen }}">{{ agent.last_seen[:19] }}Z</span>
+                                                    </td>
+                                    <td>
+                                        <span style="font-family: var(--font-mono);">{{ agent.events_sent }}</span>
+                                    </td>
+                                    <td>
+                                        {% if agent.group_name %}
+                                        <span class="badge badge-group">{{ agent.group_name }}</span>
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if agent.status == 'pending' %}
+                                        <div style="display: flex; gap: 6px; align-items: center;">
+                                            <button onclick="event.stopPropagation(); approveAgent({{ agent.id }})" 
+                                                    title="Approve Endpoint" 
+                                                    style="padding: 6px 14px; background: rgba(52, 168, 83, 0.15); color: #34a853; border: 1px solid rgba(52, 168, 83, 0.3); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s;">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
+                                                    <polyline points="20 6 9 17 4 12"/>
+                                                </svg>
+                                                Approve
+                                            </button>
+                                            <button onclick="event.stopPropagation(); declineAgent({{ agent.id }})" 
+                                                    title="Decline Endpoint"
+                                                    style="padding: 6px 14px; background: rgba(244, 67, 54, 0.15); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s;">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
+                                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                                </svg>
+                                                Decline
+                                            </button>
+                                        </div>
+                                        {% else %}
+                                        <div style="display: flex; gap: 4px;">
+                                            <button class="icon-btn" onclick="event.stopPropagation(); openAgentDetail({{ agent.id }})" title="Settings">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                    <circle cx="12" cy="12" r="3"/>
+                                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                                                </svg>
+                                            </button>
+                                            {% if agent.status == 'approved' or agent.status == 'online' %}
+                                            <button class="icon-btn" onclick="event.stopPropagation(); revokeAgent({{ agent.id }})" 
+                                                    title="Revoke Access" style="color: #ff9800;">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                                </svg>
+                                            </button>
+                                            {% endif %}
+                                            <button class="icon-btn" onclick="event.stopPropagation(); deleteAgent({{ agent.id }})" title="Remove">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                    <polyline points="3 6 5 6 21 6"/>
+                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                                    <line x1="8" y1="21" x2="16" y2="21"/>
+                                    <line x1="12" y1="17" x2="12" y2="21"/>
+                                </svg>
+                            </div>
+                            <div class="empty-state-title">No agents connected</div>
+                            <p>Create credentials in <a href="/agent-users" style="color: var(--accent-cyan);">Agent Users</a> and configure your agents to connect.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Sidebar: Groups -->
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Groups</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="groups-list" id="groupsList">
+                                <!-- Ungrouped drop zone -->
+                                <div class="group-item" 
+                                     data-group-id="0"
+                                     ondragover="handleDragOver(event)"
+                                     ondrop="handleDrop(event, 0)"
+                                     ondragleave="handleDragLeave(event)">
+                                    <div class="group-info">
+                                        <span class="group-icon">📦</span>
+                                        <div>
+                                            <div class="group-name">Ungrouped</div>
+                                            <div class="group-count">Drop here to remove from group</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {% for group in groups %}
+                                <div class="group-item" 
+                                     data-group-id="{{ group.id }}"
+                                     ondragover="handleDragOver(event)"
+                                     ondrop="handleDrop(event, {{ group.id }})"
+                                     ondragleave="handleDragLeave(event)"
+                                     onclick="openGroupDetail({{ group.id }})">
+                                    <div class="group-info">
+                                        <span class="group-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+                                        <div>
+                                            <div class="group-name">{{ group.name }}</div>
+                                            <div class="group-count">
+                                                {{ group.endpoint_count }} agent(s)
+                                                {% if group.apply_rules %}
+                                                <span style="color: var(--accent-amber);">• Rules active</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="group-actions">
+                                        <button class="icon-btn" onclick="event.stopPropagation(); openGroupDetail({{ group.id }})" title="Settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+                                        <button class="icon-btn" onclick="event.stopPropagation(); deleteGroup({{ group.id }})" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            
+                            <!-- Add group form -->
+                            <form class="add-group-form" onsubmit="createGroup(event)">
+                                <input type="text" id="newGroupName" placeholder="New group name..." required>
+                                <button type="submit">Add</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Agent Detail Modal -->
+    <div class="modal-overlay" id="agentDetailModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Agent Settings</span>
+                <button class="modal-close" onclick="closeAgentDetail()">&times;</button>
+            </div>
+            <div class="modal-body" id="agentDetailContent">
+                <!-- Filled dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Group Detail Modal -->
+    <div class="modal-overlay" id="groupDetailModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Group Settings</span>
+                <button class="modal-close" onclick="closeGroupDetail()">&times;</button>
+            </div>
+            <div class="modal-body" id="groupDetailContent">
+                <!-- Filled dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <script>
+        // Toast notification system
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34a853" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+                error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f44336" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+                warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff9800" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+            };
+            
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
+                <span class="toast-message">${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.style.animation = 'slideInRight 0.3s ease-out reverse';
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, 5000);
+        }
+        
+        // Refresh agents table without full page reload
+        async function refreshAgentsTable() {
+            try {
+                const response = await fetch('/api/connected-agents');
+                const data = await response.json();
+                
+                // Update the table body
+                const tbody = document.getElementById('agentsTableBody');
+                if (!tbody) return;
+                
+                if (data.agents.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 48px;">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></div>
+                                    <div class="empty-state-title">No agents connected</div>
+                                    <p>Create credentials in <a href="/agent-users" style="color: var(--accent-cyan);">Agent Users</a> and configure your agents to connect.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                for (const agent of data.agents) {
+                    const statusClass = `status-${agent.status}`;
+                    const osIcon = agent.os_type === 'windows' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>' : agent.os_type === 'linux' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065zm2.8 2.142c.358 1.417 1.196 3.475 1.735 4.473.286.534.855 1.659 1.102 3.024.156-.005.33.018.513.064.646-1.671-.546-3.467-1.089-3.966-.22-.2-.232-.335-.123-.335.59.534 1.365 1.572 1.646 2.757.13.535.16 1.104.021 1.67.067.028.135.06.205.067 1.032.534 1.413.938 1.23 1.537v-.043c-.06-.003-.12 0-.18 0h-.016c.151-.467-.182-.825-1.065-1.224-.915-.4-1.646-.336-1.77.465-.008.043-.013.066-.018.135-.068.023-.139.053-.209.064-.43.268-.662.669-.793 1.187-.13.533-.17 1.156-.205 1.869v.003c-.02.482-.04.965-.07 1.39a.96.96 0 01-.109.006c-.12 0-.26-.023-.393-.135-.22-.148-.487-.529-.763-1.238-.276-.71-.514-1.638-.54-2.64a.71.71 0 01.002-.118l-.003-.003c-.146-.168-.292-.267-.452-.267-.19 0-.39.1-.585.266-.324.27-.596.597-.87.87-.273.268-.551.467-.801.466-.247-.001-.468-.135-.651-.403-.182-.27-.345-.67-.48-1.138v-.004a20.32 20.32 0 01-.392-2.006c.052-.034.105-.073.165-.097.021-.008.04-.018.061-.024.03-.009.064-.01.097-.014h.036c.083 0 .167.017.25.034l.003.003c.086.018.164.035.239.053.34.067.67.134.92.063.199-.055.378-.2.54-.334-.195.27-.178.535.065.734.177.135.386.197.61.2l.046-.002c.21-.007.403-.063.554-.2.31-.27.4-.733.202-1.269-.199-.532-.697-.933-1.486-.933-.35 0-.69.07-.93.2a.6.6 0 01-.08.047c-.128.073-.263.133-.42.2-.093.033-.194.066-.304.066-.108 0-.222-.033-.34-.133-.095-.086-.196-.2-.275-.33v-.006c-.12-.2-.205-.463-.267-.8-.062-.333-.094-.735-.094-1.2v-.465c0-.333.003-.667.015-.933.012-.333.03-.6.055-.8.017-.133.038-.2.063-.267-.275.135-.588.198-.93.198-.37 0-.767-.067-1.15-.2-.548-.167-.997-.37-1.417-.67-.42-.268-.77-.535-1.004-.803a1.514 1.514 0 01-.217-.265c-.072.017-.15.034-.218.034-.18 0-.303-.086-.348-.267-.045-.2.009-.466.134-.801a2.4 2.4 0 01.478-.733c.186-.2.404-.4.67-.534.265-.133.58-.266.912-.266.335 0 .585.065.8.2.215.133.382.332.51.533z"/></svg>' : agent.os_type === 'macos' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
+                    const lastSeen = agent.last_seen ? (agent.last_seen.substring(0, 19) + 'Z') : 'Never';
+                    const groupName = agent.group_name || '';
+                    
+                    let actionsHTML = '';
+                    if (agent.status === 'pending') {
+                        actionsHTML = `
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <button onclick="event.stopPropagation(); approveAgent(${agent.id})" 
+                                        title="Approve Endpoint" 
+                                        style="padding: 6px 14px; background: rgba(52, 168, 83, 0.15); color: #34a853; border: 1px solid rgba(52, 168, 83, 0.3); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><polyline points="20 6 9 17 4 12"/></svg> Approve
+                                </button>
+                                <button onclick="event.stopPropagation(); declineAgent(${agent.id})" 
+                                        title="Decline Endpoint"
+                                        style="padding: 6px 14px; background: rgba(244, 67, 54, 0.15); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Decline
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        actionsHTML = `
+                            <div style="display: flex; gap: 4px;">
+                                <button class="icon-btn" onclick="event.stopPropagation(); openAgentDetail(${agent.id})" title="Settings">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                </button>
+                                ${agent.status === 'approved' || agent.status === 'online' ? `
+                                <button class="icon-btn" onclick="event.stopPropagation(); revokeAgent(${agent.id})" 
+                                        title="Revoke Access" style="color: #ff9800;">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                </button>
+                                ` : ''}
+                                <button class="icon-btn" onclick="event.stopPropagation(); deleteAgent(${agent.id})" title="Remove">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                </button>
+                            </div>
+                        `;
+                    }
+                    
+                    html += `
+                        <tr draggable="true" 
+                            data-agent-id="${agent.id}"
+                            ondragstart="handleDragStart(event, ${agent.id})"
+                            ondragend="handleDragEnd(event)"
+                            onclick="openAgentDetail(${agent.id})">
+                            <td>
+                                <span class="status-badge ${statusClass}">
+                                    ${agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="agent-name">
+                                    <div class="agent-icon">${osIcon}</div>
+                                    <div>
+                                        <div class="agent-name-text">${agent.hostname || 'Unknown'}</div>
+                                        <div class="agent-ip">${agent.ip_address || 'N/A'}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>${(agent.os_type || '').charAt(0).toUpperCase() + (agent.os_type || '').slice(1)}</td>
+                            <td class="text-muted" style="font-size: 12px;">${lastSeen}</td>
+                            <td>
+                                <span style="font-family: var(--font-mono);">${agent.events_sent || 0}</span>
+                            </td>
+                            <td>
+                                ${groupName ? `<span class="badge badge-group">${groupName}</span>` : '<span class="text-muted">—</span>'}
+                            </td>
+                            <td>${actionsHTML}</td>
+                        </tr>
+                    `;
+                }
+                
+                tbody.innerHTML = html;
+                
+                // Update pending count banner
+                const pendingCount = data.agents.filter(a => a.status === 'pending').length;
+                const banner = document.querySelector('.alert-info');
+                if (pendingCount > 0 && !banner) {
+                    // Banner will be shown on next page load, or we could inject it here
+                }
+            } catch (err) {
+                console.error('Failed to refresh agents table:', err);
+            }
+        }
+        
+        // Drag and drop state
+        let draggedAgentId = null;
+        
+        function handleDragStart(e, agentId) {
+            draggedAgentId = agentId;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+        
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('.group-item').forEach(item => {
+                item.classList.remove('drop-target');
+            });
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drop-target');
+        }
+        
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drop-target');
+        }
+        
+        async function handleDrop(e, groupId) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drop-target');
+            
+            if (!draggedAgentId) return;
+            
+            try {
+                const response = await fetch(`/api/connected-agents/${draggedAgentId}/assign-group`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ group_id: groupId === 0 ? null : groupId })
+                });
+                
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (err) {
+                console.error('Failed to assign group:', err);
+            }
+        }
+        
+        // Agent detail
+        async function openAgentDetail(id) {
+            try {
+                const response = await fetch(`/api/connected-agents/${id}`);
+                const data = await response.json();
+                
+                let rulesHTML = `<div class="rules-section">
+                    <div class="rules-title">Detection Rules</div>`;
+                
+                for (const [ruleName, enabled] of Object.entries(data.rules)) {
+                    const label = data.rule_labels[ruleName] || ruleName;
+                    rulesHTML += `
+                        <div class="rule-item">
+                            <div class="rule-info">
+                                <span class="rule-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                                <span class="rule-name">${label}</span>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" ${enabled ? 'checked' : ''} disabled>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    `;
+                }
+                rulesHTML += '</div>';
+                
+                document.getElementById('agentDetailContent').innerHTML = `
+                    <div class="form-group">
+                        <label class="form-label">Hostname</label>
+                        <div style="color: var(--text-primary); font-size: 16px; font-weight: 500;">
+                            ${data.agent.hostname}
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label class="form-label">IP Address</label>
+                            <div style="font-family: var(--font-mono); color: var(--text-secondary);">
+                                ${data.agent.ip_address}
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">OS Type</label>
+                            <div style="color: var(--text-secondary);">
+                                ${data.agent.os_type}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <span class="status-badge status-${data.agent.status}">${data.agent.status}</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Events Sent</label>
+                            <div style="color: var(--accent-cyan); font-weight: 600;">
+                                ${data.agent.events_sent}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Last Seen</label>
+                        <div style="color: var(--text-muted); font-size: 13px;">
+                            ${data.agent.last_seen}
+                        </div>
+                    </div>
+                    ${rulesHTML}
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 16px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4.58 12.29c.72.68 1.21 1.59 1.37 2.54l.21 1.17h6l.21-1.17c.16-.95.65-1.86 1.37-2.54A7 7 0 0 0 12 2z"/></svg> Assign this agent to a group with "Apply Rules" enabled to control detection rules.
+                    </p>
+                `;
+                
+                document.getElementById('agentDetailModal').classList.add('active');
+            } catch (err) {
+                console.error('Failed to load agent:', err);
+            }
+        }
+        
+        function closeAgentDetail() {
+            document.getElementById('agentDetailModal').classList.remove('active');
+        }
+        
+        async function approveAgent(id) {
+            if (!confirm('Approve this endpoint? It will be able to send events to the server.')) return;
+            
+            try {
+                const response = await fetch(`/api/connected-agents/${id}/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    showToast('Endpoint approved successfully! The agent can now send events.', 'success');
+                    // Refresh table after a short delay to show the update
+                    setTimeout(() => refreshAgentsTable(), 500);
+                } else {
+                    showToast('Failed to approve endpoint: ' + (data.detail || 'Unknown error'), 'error');
+                }
+            } catch (err) {
+                console.error('Failed to approve agent:', err);
+                showToast('Error approving endpoint. Please try again.', 'error');
+            }
+        }
+        
+        async function declineAgent(id) {
+            if (!confirm('Decline this endpoint? It will NOT be able to send events and the connection will be rejected.')) return;
+            
+            try {
+                const response = await fetch(`/api/connected-agents/${id}/decline`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    showToast('Endpoint declined. The agent connection has been rejected.', 'warning');
+                    // Refresh table after a short delay to show the update
+                    setTimeout(() => refreshAgentsTable(), 500);
+                } else {
+                    showToast('Failed to decline endpoint: ' + (data.detail || 'Unknown error'), 'error');
+                }
+            } catch (err) {
+                console.error('Failed to decline agent:', err);
+                showToast('Error declining endpoint. Please try again.', 'error');
+            }
+        }
+        
+        async function revokeAgent(id) {
+            if (!confirm('Revoke this endpoint? It will lose access and must be re-approved to send events.')) return;
+            
+            try {
+                const response = await fetch(`/api/connected-agents/${id}/revoke`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    showToast('Endpoint access revoked. The agent must be re-approved.', 'warning');
+                    setTimeout(() => refreshAgentsTable(), 500);
+                } else {
+                    showToast('Failed to revoke endpoint: ' + (data.detail || 'Unknown error'), 'error');
+                }
+            } catch (err) {
+                console.error('Failed to revoke agent:', err);
+                showToast('Error revoking endpoint. Please try again.', 'error');
+            }
+        }
+        
+        async function deleteAgent(id) {
+            if (!confirm('Remove this agent from the list?')) return;
+            
+            try {
+                const response = await fetch(`/api/connected-agents/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    showToast('Agent removed successfully.', 'success');
+                    setTimeout(() => refreshAgentsTable(), 500);
+                } else {
+                    showToast('Failed to remove agent.', 'error');
+                }
+            } catch (err) {
+                console.error('Failed to delete agent:', err);
+                showToast('Error removing agent. Please try again.', 'error');
+            }
+        }
+        
+        // Group handlers
+        async function createGroup(e) {
+            e.preventDefault();
+            const name = document.getElementById('newGroupName').value;
+            
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('apply_rules', 'false');
+            
+            try {
+                const response = await fetch('/api/groups', {
+                    method: 'POST',
+                    body: formData
+                });
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (err) {
+                console.error('Failed to create group:', err);
+            }
+        }
+        
+        async function deleteGroup(id) {
+            if (!confirm('Delete this group? Agents will be unassigned.')) return;
+            
+            try {
+                const response = await fetch(`/api/groups/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (err) {
+                console.error('Failed to delete group:', err);
+            }
+        }
+        
+        async function openGroupDetail(id) {
+            try {
+                const response = await fetch(`/api/groups/${id}`);
+                const data = await response.json();
+                
+                let rulesHTML = `
+                    <div class="form-group">
+                        <label class="form-label">Apply Group Rules</label>
+                        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+                            When enabled, group rules override individual agent rules.
+                        </p>
+                        <label class="toggle">
+                            <input type="checkbox" id="groupApplyRules" ${data.group.apply_rules ? 'checked' : ''}
+                                   onchange="updateGroupApplyRules(${id}, this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="rules-section">
+                        <div class="rules-title">Group Detection Rules</div>
+                `;
+                
+                for (const [ruleName, enabled] of Object.entries(data.rules)) {
+                    const label = data.rule_labels[ruleName] || ruleName;
+                    rulesHTML += `
+                        <div class="rule-item">
+                            <div class="rule-info">
+                                <span class="rule-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                                <span class="rule-name">${label}</span>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" ${enabled ? 'checked' : ''}
+                                       onchange="updateGroupRule(${id}, '${ruleName}', this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    `;
+                }
+                rulesHTML += '</div>';
+                
+                document.getElementById('groupDetailContent').innerHTML = `
+                    <div class="form-group">
+                        <label class="form-label">Group Name</label>
+                        <div style="color: var(--text-primary); font-size: 16px; font-weight: 500;">
+                            ${data.group.name}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Agents in Group</label>
+                        <div style="color: var(--text-secondary);">
+                            ${data.group.endpoint_count} agent(s)
+                        </div>
+                    </div>
+                    ${rulesHTML}
+                `;
+                
+                document.getElementById('groupDetailModal').classList.add('active');
+            } catch (err) {
+                console.error('Failed to load group:', err);
+            }
+        }
+        
+        function closeGroupDetail() {
+            document.getElementById('groupDetailModal').classList.remove('active');
+        }
+        
+        async function updateGroupApplyRules(groupId, applyRules) {
+            try {
+                await fetch(`/api/groups/${groupId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ apply_rules: applyRules })
+                });
+            } catch (err) {
+                console.error('Failed to update group:', err);
+            }
+        }
+        
+        async function updateGroupRule(groupId, ruleName, enabled) {
+            try {
+                await fetch(`/api/groups/${groupId}/rules`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ [ruleName]: enabled })
+                });
+            } catch (err) {
+                console.error('Failed to update group rule:', err);
+            }
+        }
+        
+        // Close modals on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeAgentDetail();
+                closeGroupDetail();
+            }
+        });
+        
+        // Close modals on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.classList.remove('active');
+                }
+            });
+        });
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            window.location.reload();
+        }, 30000);
+        
+        // Theme toggle functionality
+        function updateThemeIcon() {
+            const theme = document.documentElement.getAttribute('data-theme');
+            const icon = document.getElementById('themeIcon');
+            if (icon) {
+                icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+            }
+        }
+        
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon();
+        });
+        
+        // Initialize theme icon on load
+        updateThemeIcon();
+    </script>
+</body>
+</html>

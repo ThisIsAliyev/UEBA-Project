@@ -1,0 +1,76 @@
+# UEBA Feature Weights Configuration
+# 
+# This file defines the weights for each feature used in risk scoring.
+# Higher weights (max 1.0) mean the feature contributes more to the risk score.
+# 
+# Categories map to event categories in the normalizer.
+# Features are extracted by the corresponding features_*.py modules.
+
+features:
+  # Authentication features (from features_auth.py)
+  # Applied to category: auth
+  authentication:
+    is_off_hours:
+      weight: 0.6
+      description: "Event occurred outside normal working hours (8am-7pm, weekdays)"
+    
+    is_failed_logon:
+      weight: 0.8
+      description: "Failed login attempt"
+    
+    is_privileged_logon:
+      weight: 0.7
+      description: "Login using privileged/admin account"
+    
+    is_rare_source_ip:
+      weight: 0.9
+      description: "Login from unusual/rare source IP address"
+
+  # Process execution features (from features_process.py)
+  # Applied to category: process
+  process_execution:
+    is_lolbin:
+      weight: 0.7
+      description: "Process is a Living off the Land Binary (LOLBin)"
+    
+    is_suspicious_path:
+      weight: 0.7
+      description: "Process running from suspicious path (Temp, Downloads, etc.)"
+    
+    has_obfuscated_cmdline:
+      weight: 0.9
+      description: "Command line shows signs of obfuscation (base64, encoding, etc.)"
+
+  # Network features (from features_network.py)
+  # Applied to category: network
+  network:
+    is_external_ip:
+      weight: 0.5
+      description: "Connection to external/public IP address"
+    
+    is_high_risk_port:
+      weight: 0.8
+      description: "Connection to high-risk port (RDP, SMB, SSH, etc.)"
+    
+    is_rare_destination:
+      weight: 0.9
+      description: "Connection to unusual/rare destination"
+
+# Scoring configuration
+scoring:
+  # How to combine rule_score and feature_score
+  # final_score = rule_weight * rule_score + feature_weight * feature_score
+  rule_weight: 0.6
+  feature_weight: 0.4
+  
+  # Maximum sum of feature weights before normalization
+  # Used to normalize feature_score to 0-100 scale
+  max_feature_sum: 10.0
+  
+  # Risk level thresholds
+  risk_levels:
+    critical: 80
+    high: 60
+    medium: 40
+    low: 20
+    # info: < 20

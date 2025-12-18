@@ -1,0 +1,209 @@
+# UEBA Whitelist/Blacklist Configuration
+# =======================================
+# This file defines known-good (whitelist) and known-bad (blacklist) patterns
+# for risk scoring adjustments.
+
+# Whitelist: Known-good items that REDUCE risk score
+whitelist:
+  # System processes that are typically benign
+  processes:
+    - explorer.exe
+    - svchost.exe
+    - services.exe
+    - lsass.exe
+    - csrss.exe
+    - wininit.exe
+    - winlogon.exe
+    - dwm.exe
+    - taskhostw.exe
+    - sihost.exe
+    - fontdrvhost.exe
+    - searchindexer.exe
+    - searchprotocolhost.exe
+    - runtimebroker.exe
+    - applicationframehost.exe
+    - systemsettings.exe
+    - settingsynchost.exe
+    - smartscreen.exe
+    - securityhealthservice.exe
+    - msmpeng.exe
+    - nissrv.exe
+    - spoolsv.exe
+    - printfilterpipelinesvc.exe
+    - dllhost.exe
+    - conhost.exe
+    - notepad.exe
+    - calc.exe
+    - mspaint.exe
+
+# Blacklist: Known-bad patterns that INCREASE risk score
+blacklist:
+  # Dangerous processes (when seen in unusual contexts)
+  processes:
+    - mimikatz.exe
+    - procdump.exe
+    - psexec.exe
+    - psexec64.exe
+    - cobaltstrike.exe
+
+  # Dangerous command-line patterns (regex)
+  command_patterns:
+    # Encoded PowerShell
+    - pattern: "-enc\\s+[A-Za-z0-9+/=]{20,}"
+      risk_modifier: 50
+      description: "Base64 encoded PowerShell command"
+    
+    - pattern: "-encodedcommand\\s+"
+      risk_modifier: 50
+      description: "Encoded PowerShell command parameter"
+    
+    # Download and execute patterns
+    - pattern: "downloadstring|downloadfile|invoke-webrequest"
+      risk_modifier: 40
+      description: "PowerShell download command"
+    
+    - pattern: "invoke-expression|iex\\s*\\("
+      risk_modifier: 45
+      description: "Dynamic code execution (IEX)"
+    
+    # Execution policy bypass
+    - pattern: "bypass|unrestricted|hidden"
+      risk_modifier: 35
+      description: "Execution policy bypass attempt"
+    
+    - pattern: "-nop\\s+-w\\s+hidden"
+      risk_modifier: 50
+      description: "Hidden PowerShell window"
+    
+    # User/group manipulation
+    - pattern: "net\\s+user\\s+.*\\s+/add"
+      risk_modifier: 60
+      description: "Local user creation"
+    
+    - pattern: "net\\s+localgroup\\s+administrators"
+      risk_modifier: 55
+      description: "Administrator group modification"
+    
+    # Persistence mechanisms
+    - pattern: "reg\\s+add.*\\\\run"
+      risk_modifier: 50
+      description: "Registry Run key modification"
+    
+    - pattern: "schtasks\\s+/create"
+      risk_modifier: 40
+      description: "Scheduled task creation"
+    
+    # LOLBins (Living Off the Land Binaries)
+    - pattern: "wmic\\s+.*process\\s+call\\s+create"
+      risk_modifier: 55
+      description: "WMI process creation"
+    
+    - pattern: "certutil.*-decode"
+      risk_modifier: 50
+      description: "Certutil decode (LOLBin technique)"
+    
+    - pattern: "bitsadmin.*transfer"
+      risk_modifier: 45
+      description: "BITS transfer (LOLBin technique)"
+    
+    - pattern: "mshta\\s+"
+      risk_modifier: 50
+      description: "MSHTA execution"
+    
+    - pattern: "regsvr32\\s+/s\\s+/n\\s+/u"
+      risk_modifier: 55
+      description: "Regsvr32 AppLocker bypass"
+    
+    - pattern: "rundll32.*javascript:"
+      risk_modifier: 60
+      description: "Rundll32 JavaScript execution"
+    
+    # Credential access
+    - pattern: "sekurlsa|logonpasswords|wdigest"
+      risk_modifier: 70
+      description: "Credential dumping keywords"
+    
+    - pattern: "reg\\s+save.*\\\\sam|\\\\security|\\\\system"
+      risk_modifier: 65
+      description: "Registry hive export (credential theft)"
+
+  # Suspicious execution paths
+  path_patterns:
+    - pattern: "\\\\temp\\\\"
+      risk_modifier: 25
+      description: "Execution from Temp folder"
+    
+    - pattern: "\\\\tmp\\\\"
+      risk_modifier: 25
+      description: "Execution from Tmp folder"
+    
+    - pattern: "\\\\downloads\\\\"
+      risk_modifier: 20
+      description: "Execution from Downloads folder"
+    
+    - pattern: "\\\\appdata\\\\local\\\\temp"
+      risk_modifier: 25
+      description: "Execution from AppData Temp"
+    
+    - pattern: "\\\\programdata\\\\"
+      risk_modifier: 15
+      description: "Execution from ProgramData"
+    
+    - pattern: "\\\\\\$recycle\\.bin\\\\"
+      risk_modifier: 40
+      description: "Execution from Recycle Bin"
+    
+    - pattern: "\\\\users\\\\public\\\\"
+      risk_modifier: 20
+      description: "Execution from Public folder"
+
+  # Known malicious hashes (add your own)
+  hashes: []
+
+# Role-specific lists
+# Different rules for different organizational units
+roles:
+  # Standard office workers
+  standard_user:
+    allowed_processes:
+      - outlook.exe
+      - winword.exe
+      - excel.exe
+      - powerpnt.exe
+      - teams.exe
+      - chrome.exe
+      - msedge.exe
+      - firefox.exe
+    denied_processes:
+      - powershell.exe
+      - cmd.exe
+      - wscript.exe
+      - cscript.exe
+      - mshta.exe
+
+  # Developers (more permissive)
+  developer:
+    allowed_processes:
+      - powershell.exe
+      - cmd.exe
+      - code.exe
+      - devenv.exe
+      - python.exe
+      - node.exe
+      - git.exe
+      - docker.exe
+    denied_processes:
+      - mimikatz.exe
+      - procdump.exe
+
+  # IT Administrators (most permissive)
+  admin:
+    allowed_processes:
+      - powershell.exe
+      - cmd.exe
+      - mmc.exe
+      - regedit.exe
+      - services.msc
+      - compmgmt.msc
+    denied_processes:
+      - mimikatz.exe

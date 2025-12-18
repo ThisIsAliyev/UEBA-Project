@@ -1,0 +1,1554 @@
+{% extends "base.html" %}
+
+{% block title %}UEBA Alert Dashboard{% endblock %}
+
+{% block nav_alerts_active %}active{% endblock %}
+
+{% block page_title %}UEBA Alert Dashboard{% endblock %}
+{% block page_subtitle %}Real-time behavior detection and analytics{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Alert Detail Modal */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .modal-overlay.active {
+        display: flex;
+    }
+
+    .modal {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        width: 100%;
+        max-width: 700px;
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-card-alt);
+    }
+
+    .modal-title {
+        font-size: 18px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 28px;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        transition: color 0.2s;
+    }
+
+    .modal-close:hover {
+        color: var(--text-primary);
+    }
+
+    .modal-body {
+        padding: 24px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    /* Alert Detail Header */
+    .alert-detail-header {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        margin-bottom: 24px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .risk-indicator {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 16px 24px;
+        border-radius: 12px;
+        min-width: 100px;
+    }
+
+    .risk-indicator.risk-high {
+        background: rgba(244, 67, 54, 0.15);
+        border: 1px solid rgba(244, 67, 54, 0.3);
+    }
+
+    .risk-indicator.risk-medium {
+        background: rgba(255, 176, 32, 0.15);
+        border: 1px solid rgba(255, 176, 32, 0.3);
+    }
+
+    .risk-indicator.risk-low {
+        background: rgba(52, 168, 83, 0.15);
+        border: 1px solid rgba(52, 168, 83, 0.3);
+    }
+
+    .risk-score {
+        font-size: 32px;
+        font-weight: 700;
+    }
+
+    .risk-high .risk-score {
+        color: #f44336;
+    }
+
+    .risk-medium .risk-score {
+        color: #ffb020;
+    }
+
+    .risk-low .risk-score {
+        color: #34a853;
+    }
+
+    .risk-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin-top: 4px;
+    }
+
+    .behavior-info {
+        flex: 1;
+    }
+
+    .behavior-badge {
+        display: inline-block;
+        background: rgba(0, 212, 255, 0.15);
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        color: var(--accent-cyan);
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .alert-time {
+        display: block;
+        margin-top: 8px;
+        color: var(--text-muted);
+        font-size: 13px;
+        font-family: var(--font-mono);
+    }
+
+    /* Alert Detail Grid */
+    .alert-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+
+    .detail-section {
+        background: var(--bg-card-alt);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px;
+    }
+
+    .detail-section.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .detail-section h4 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--accent-cyan);
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-color);
+        gap: 16px;
+    }
+
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+
+    .detail-label {
+        font-size: 12px;
+        color: var(--text-muted);
+        flex-shrink: 0;
+    }
+
+    .detail-value {
+        font-size: 13px;
+        color: var(--text-primary);
+        text-align: right;
+        word-break: break-word;
+    }
+
+    .detail-value.mono {
+        font-family: var(--font-mono);
+        font-size: 12px;
+    }
+
+    .message-box {
+        background: var(--bg-page);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--text-secondary);
+    }
+
+    @media (max-width: 600px) {
+        .alert-detail-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .alert-detail-header {
+            flex-direction: column;
+            text-align: center;
+        }
+    }
+
+    /* Cool Dashboard Enhancements */
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(1.05); }
+    }
+
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes glow {
+        0%, 100% { box-shadow: 0 0 5px rgba(255, 59, 48, 0.3); }
+        50% { box-shadow: 0 0 20px rgba(255, 59, 48, 0.6), 0 0 30px rgba(255, 59, 48, 0.4); }
+    }
+
+    .metric-card {
+        animation: slideIn 0.5s ease-out;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .metric-value {
+        transition: color 0.3s ease;
+    }
+
+    .alert-row {
+        animation: slideIn 0.4s ease-out;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    .alert-row:hover {
+        transform: translateX(5px);
+    }
+
+    .alert-row.new-alert {
+        animation: pulse 1.5s ease-in-out 3;
+    }
+
+    .live-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        background: rgba(52, 199, 89, 0.1);
+        border: 1px solid rgba(52, 199, 89, 0.3);
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        color: #34c759;
+    }
+
+    .live-indicator::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        background: #34c759;
+        border-radius: 50%;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .event-counter {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 100;
+        min-width: 200px;
+        animation: slideIn 0.5s ease-out;
+    }
+
+    .event-counter-title {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .event-counter-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--accent-primary);
+        font-family: var(--font-mono);
+    }
+
+    .event-counter-rate {
+        font-size: 11px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+
+    .critical-alert-banner {
+        position: fixed;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #ff3b30 0%, #ff6b6b 100%);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(255, 59, 48, 0.4);
+        z-index: 1000;
+        display: none;
+        animation: slideIn 0.3s ease-out, glow 2s ease-in-out infinite;
+        font-weight: 600;
+    }
+
+    .critical-alert-banner.show {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Critical Alert Banner -->
+<div class="critical-alert-banner" id="criticalBanner">
+    <span id="criticalBannerText">⚠️ Critical Alert Detected</span>
+</div>
+
+<!-- Live Event Counter -->
+<div class="event-counter" id="eventCounter">
+    <div class="event-counter-title">Live Events</div>
+    <div class="event-counter-value" id="eventCountValue">0</div>
+    <div class="event-counter-rate" id="eventRate">0 events/min</div>
+</div>
+
+<!-- Metrics Row -->
+<div class="metrics-row">
+    <div class="metric-card">
+        <div class="metric-label">
+            <span>Total Alerts</span>
+            <span class="live-indicator">LIVE</span>
+        </div>
+        <div class="metric-value" id="metricTotal">-</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Last Hour</div>
+        <div class="metric-value highlight-cyan" id="metricHour">-</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Last 24 Hours</div>
+        <div class="metric-value highlight-amber" id="metric24h">-</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Unique Hosts</div>
+        <div class="metric-value" id="metricHosts">-</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Unique Users</div>
+        <div class="metric-value" id="metricUsers">-</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">High Risk (24h)</div>
+        <div class="metric-value highlight-red" id="metricHighRisk">-</div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="charts-row">
+    <div class="chart-card">
+        <div class="chart-title">Alerts Over Time (Last 24 Hours)</div>
+        <div class="chart-container">
+            <canvas id="alertsTimelineChart"></canvas>
+        </div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-title">Alerts by Category</div>
+        <div class="chart-container">
+            <canvas id="alertsCategoryChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Alerts Table -->
+<div class="table-card">
+    <div class="table-controls">
+        <div class="filter-chips" id="filterChips">
+            <button class="filter-chip active" data-behavior="all">All Alerts</button>
+            <button class="filter-chip" data-behavior="failed_login_burst">Login Bursts</button>
+            <button class="filter-chip" data-behavior="suspicious_path_execution">Path Exec</button>
+            <button class="filter-chip" data-behavior="security_log_clearing">Log Clearing</button>
+            <button class="filter-chip" data-behavior="restricted_hours_login">Restricted Hours</button>
+            <button class="filter-chip" data-behavior="firewall_disabled">Firewall Off</button>
+            <button class="filter-chip" data-behavior="privilege_escalation">Priv Escalation</button>
+        </div>
+        <div class="table-actions">
+            <div class="search-input">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input type="text" id="searchInput" placeholder="Search alerts...">
+            </div>
+            <button class="btn-refresh" onclick="forceRefresh()" title="Refresh alerts">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <polyline points="23 4 23 10 17 10" />
+                    <polyline points="1 20 1 14 7 14" />
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+            </button>
+            <button class="btn-download" onclick="downloadAlerts()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                    style="margin-right: 4px; vertical-align: middle;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Download
+            </button>
+        </div>
+    </div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Host</th>
+                <th>User</th>
+                <th>Behavior</th>
+                <th>Risk</th>
+                <th>Hits</th>
+                <th>Source</th>
+                <th>Summary</th>
+            </tr>
+        </thead>
+        <tbody id="alertsBody">
+            <tr>
+                <td colspan="8">
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <span>Loading alerts...</span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="table-footer">
+        <div class="table-info">
+            Showing <span id="showingFrom">0</span>-<span id="showingTo">0</span> of <span id="totalAlerts">0</span>
+            alerts
+        </div>
+        <div class="pagination">
+            <button class="pagination-btn" id="prevPageBtn" onclick="prevPage()" disabled>← Previous</button>
+            <span class="pagination-info">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
+            <button class="pagination-btn" id="nextPageBtn" onclick="nextPage()">Next →</button>
+        </div>
+    </div>
+</div>
+
+<!-- Alert Detail Modal -->
+<div class="modal-overlay" id="alertDetailModal" onclick="if(event.target === this) closeAlertDetail()">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                    style="margin-right: 8px; vertical-align: middle;">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                Alert Details
+            </span>
+            <button class="modal-close" onclick="closeAlertDetail()">&times;</button>
+        </div>
+        <div class="modal-body" id="alertDetailContent">
+            <!-- Filled dynamically -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // ============================================
+    // Alerts Page JavaScript
+    // ============================================
+
+    const REFRESH_INTERVAL = {{ refresh_interval }};
+    let ALERTS_PER_PAGE = {{ events_per_page }};
+
+    const BEHAVIOR_LABELS = {
+        'failed_login_burst': 'Failed Login Burst',
+        'suspicious_path_execution': 'Suspicious Path Execution',
+        'security_log_clearing': 'Security Log Clearing',
+        'restricted_hours_login': 'Restricted Hours Login',
+        'firewall_disabled': 'Firewall Disabled',
+        'privilege_escalation': 'Privilege Escalation'
+    };
+
+    let alerts = [];
+    let allAlerts = [];
+    let latestAlertId = 0;
+    let currentBehaviorFilter = 'all';
+    let searchQuery = '';
+    let currentPage = 1;
+    let alertsTimelineChart = null;
+    let alertsCategoryChart = null;
+    let timeRange = '24h';
+    
+    // Throttle chart updates to prevent animation reset on every alert
+    let chartUpdatePending = false;
+    let lastChartUpdate = 0;
+    const CHART_UPDATE_INTERVAL = 1000; // Update charts max once per second
+
+    // Dashboard utilities namespace
+    const dashboardUtils = {
+        formatNumber: function(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        },
+        formatTimestamp: function(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString('en-US', {
+                month: 'short',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        },
+        escapeHtml: function(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        },
+        createTimelineChart: function(canvasId, data, label, color) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) {
+                console.error(`Canvas not found: ${canvasId}`);
+                return null;
+            }
+            
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.12)';
+            const textColor = isDark ? '#9aa0a6' : '#374151';
+            
+            const labels = Object.keys(data || {}).sort();
+            const values = labels.map(key => data[key] || 0);
+            
+            if (labels.length === 0) {
+                labels.push(new Date().toISOString());
+                values.push(0);
+            }
+            
+            let spansMultipleDays = false;
+            if (labels.length >= 2) {
+                const firstDate = new Date(labels[0]);
+                const lastDate = new Date(labels[labels.length - 1]);
+                const daysDiff = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+                spansMultipleDays = daysDiff > 1;
+            }
+            
+            const formattedLabels = labels.map(label => {
+                const date = new Date(label);
+                if (spansMultipleDays) {
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + 
+                           ' ' + date.toLocaleTimeString('en-US', { hour: '2-digit', hour12: false }) + ':00';
+                } else {
+                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                }
+            });
+            
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: formattedLabels,
+                    datasets: [{
+                        label: label,
+                        data: values,
+                        borderColor: color,
+                        backgroundColor: color + '20',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointBackgroundColor: color,
+                        pointBorderColor: color,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 400, easing: 'easeOutQuart' },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: isDark ? '#0b1020' : '#ffffff',
+                            titleColor: isDark ? '#e8eaed' : '#1a1a1a',
+                            bodyColor: isDark ? '#9aa0a6' : '#5f6368',
+                            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor, drawBorder: false },
+                            ticks: { color: textColor, maxRotation: 45, font: { size: 11 } }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: gridColor, drawBorder: false },
+                            ticks: { color: textColor, font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        },
+        createDonutChart: function(canvasId, data, colors) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) {
+                console.error(`Canvas not found: ${canvasId}`);
+                return null;
+            }
+            
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const textColor = isDark ? '#9aa0a6' : '#374151';
+            
+            const labels = Object.keys(data || {});
+            const values = labels.map(key => data[key]);
+            
+            if (labels.length === 0) {
+                labels.push('No Data');
+                values.push(1);
+                colors = ['#6b7280'];
+            }
+            
+            return new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 400, easing: 'easeOutQuart' },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: textColor, padding: 15, font: { size: 11 } }
+                        },
+                        tooltip: {
+                            backgroundColor: isDark ? '#0b1020' : '#ffffff',
+                            titleColor: isDark ? '#e8eaed' : '#1a1a1a',
+                            bodyColor: isDark ? '#9aa0a6' : '#374151',
+                            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.15)',
+                            borderWidth: 1
+                        }
+                    }
+                }
+            });
+        }
+    };
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        // Sync timeRange with dropdown value (from session storage or default)
+        const timeRangeSelect = document.getElementById('timeRangeSelect');
+        if (timeRangeSelect) {
+            const savedRange = sessionStorage.getItem('selectedTimeRange');
+            if (savedRange) {
+                timeRangeSelect.value = savedRange;
+                timeRange = savedRange;
+            } else {
+                timeRange = timeRangeSelect.value || '24h';
+            }
+        }
+        console.log('Initialized with timeRange:', timeRange);
+        
+        // Show loading state
+        showLoadingState();
+
+        // Load initial data with retry
+        loadAllAlertsWithRetry(3);
+        loadStats();
+        loadCharts();
+        setupFilters();
+        setupSearch();
+
+        // Periodic refresh - always poll for new alerts as backup
+        setInterval(loadStats, 10000);  // Refresh stats every 10 seconds
+        setInterval(updateChartsSmooth, 120000);  // Smooth chart updates every 2 minutes
+
+        // Poll for new alerts every 5 seconds
+        setInterval(pollNewAlerts, Math.max(REFRESH_INTERVAL, 5000));
+
+        // Reload alerts every 60 seconds as a fallback
+        setInterval(() => {
+            if (allAlerts.length === 0) {
+                console.log('No alerts loaded, retrying...');
+                loadAllAlertsWithRetry(1);
+            }
+        }, 60000);
+
+        console.log('Alert dashboard initialized with real-time updates');
+    });
+
+    function showLoadingState() {
+        const tbody = document.getElementById('alertsBody');
+        if (tbody) {
+            tbody.innerHTML = `
+            <tr><td colspan="8">
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                    </div>
+                    <div class="empty-state-title">Loading alerts...</div>
+                </div>
+            </td></tr>
+        `;
+        }
+    }
+
+    async function loadAllAlertsWithRetry(retries = 3) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                await loadAllAlerts();
+                if (allAlerts.length >= 0) {
+                    return; // Success
+                }
+            } catch (error) {
+                console.error(`Load attempt ${i + 1} failed:`, error);
+                if (i < retries - 1) {
+                    await new Promise(r => setTimeout(r, 1000 * (i + 1))); // Backoff
+                }
+            }
+        }
+    }
+
+    // Handle new alert from WebSocket or polling
+    window.handleNewAlert = function (alert) {
+        if (allAlerts.some(a => a.id === alert.id)) return;
+
+        console.log('New alert received:', alert.id, alert.behavior);
+
+        allAlerts.unshift(alert);
+        if (alert.id > latestAlertId) latestAlertId = alert.id;
+
+        // Update table immediately (real-time)
+        applyFiltersAndPagination();
+        
+        // Update stats frequently (lightweight)
+        loadStats();
+        
+        // Throttle chart updates to prevent animation reset spam
+        const now = Date.now();
+        if (now - lastChartUpdate >= CHART_UPDATE_INTERVAL) {
+            lastChartUpdate = now;
+            updateChartsSmooth();
+        } else if (!chartUpdatePending) {
+            chartUpdatePending = true;
+            setTimeout(() => {
+                chartUpdatePending = false;
+                lastChartUpdate = Date.now();
+                updateChartsSmooth();
+            }, CHART_UPDATE_INTERVAL - (now - lastChartUpdate));
+        }
+
+        // Flash the status indicator to show real-time activity
+        const statusDot = document.getElementById('statusDot');
+        if (statusDot) {
+            statusDot.style.animation = 'pulse 0.5s ease';
+            setTimeout(() => { statusDot.style.animation = ''; }, 500);
+        }
+    };
+
+    // Handle time range change
+    window.handleTimeRangeChange = function (range) {
+        timeRange = range;
+        
+        // Save to session storage for persistence
+        sessionStorage.setItem('selectedTimeRange', range);
+        
+        // Reload charts with new time range
+        loadCharts();
+        
+        console.log(`Time range changed to: ${range}`);
+    };
+
+    // Load data
+    async function loadAllAlerts() {
+        try {
+            const response = await fetch(`/api/alerts?limit=500`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Ensure we have an array
+            allAlerts = Array.isArray(data.alerts) ? data.alerts : [];
+
+            if (allAlerts.length > 0) {
+                latestAlertId = allAlerts[0].id;
+            }
+
+            console.log(`Loaded ${allAlerts.length} alerts`);
+            applyFiltersAndPagination();
+
+        } catch (error) {
+            console.error('Failed to load alerts:', error);
+
+            // Only show error state if we have no cached alerts
+            if (allAlerts.length === 0) {
+                const tbody = document.getElementById('alertsBody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                    <tr><td colspan="8">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="8" x2="12" y2="12"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                            </div>
+                            <div class="empty-state-title">Failed to load alerts</div>
+                            <p style="color: var(--text-muted); font-size: 12px; margin-top: 8px;">
+                                Retrying in a few seconds...
+                            </p>
+                        </div>
+                    </td></tr>
+                `;
+                }
+            }
+
+            throw error; // Re-throw for retry logic
+        }
+    }
+
+    async function pollNewAlerts() {
+        try {
+            // If no alerts loaded yet, do a full reload instead
+            if (allAlerts.length === 0) {
+                console.log('No alerts in cache, doing full reload');
+                await loadAllAlerts();
+                return;
+            }
+
+            const response = await fetch(`/api/alerts?since_id=${latestAlertId}&limit=50`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.alerts && data.alerts.length > 0) {
+                console.log(`Polling found ${data.alerts.length} new alerts`);
+                // Process in reverse order (oldest first) to maintain proper order
+                data.alerts.reverse().forEach(alert => window.handleNewAlert(alert));
+            }
+        } catch (error) {
+            console.error('Failed to poll alerts:', error);
+        }
+    }
+
+    // Force full refresh
+    function forceRefresh() {
+        showLoadingState();
+        loadAllAlertsWithRetry(2);
+        loadStats();
+        loadCharts();
+    }
+
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/alerts/stats');
+            const stats = await response.json();
+
+            document.getElementById('metricTotal').textContent = dashboardUtils.formatNumber(stats.total_alerts);
+            document.getElementById('metricHour').textContent = dashboardUtils.formatNumber(stats.alerts_last_hour);
+            document.getElementById('metric24h').textContent = dashboardUtils.formatNumber(stats.alerts_last_24h);
+            document.getElementById('metricHosts').textContent = dashboardUtils.formatNumber(stats.unique_hosts);
+            document.getElementById('metricUsers').textContent = dashboardUtils.formatNumber(stats.unique_users);
+            document.getElementById('metricHighRisk').textContent = dashboardUtils.formatNumber(stats.high_risk_24h);
+        } catch (error) {
+            console.error('Failed to load stats:', error);
+        }
+    }
+
+    async function loadCharts() {
+        try {
+            const hours = timeRange === '1h' ? 1 : timeRange === '24h' ? 24 : timeRange === '7d' ? 168 : 720;
+            const response = await fetch(`/api/alerts/summary?hours=${hours}`);
+            const summary = await response.json();
+
+            // Update timeline chart
+            if (alertsTimelineChart) {
+                alertsTimelineChart.destroy();
+            }
+            
+            // Check if we have timeline data
+            if (summary.timeline && Object.keys(summary.timeline).length > 0) {
+                alertsTimelineChart = dashboardUtils.createTimelineChart(
+                    'alertsTimelineChart',
+                    summary.timeline,
+                    'Alerts',
+                    '#00d4ff'
+                );
+            } else {
+                // Create empty chart with placeholder message
+                const ctx = document.getElementById('alertsTimelineChart');
+                if (ctx) {
+                    alertsTimelineChart = new Chart(ctx, {
+                        type: 'line',
+                        data: { labels: [], datasets: [{ data: [], label: 'Alerts' }] },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                title: {
+                                    display: true,
+                                    text: 'No alert data for selected range',
+                                    color: '#9aa0a6',
+                                    font: { size: 14 }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Update category chart
+            const categoryColors = ['#00d4ff', '#ffb020', '#f44336', '#00e5d4', '#34a853', '#9c27b0'];
+            const categoryLabels = {
+                'failed_login_burst': 'Login Bursts',
+                'suspicious_path_execution': 'Path Exec',
+                'security_log_clearing': 'Log Clearing',
+                'restricted_hours_login': 'Restricted Hours',
+                'firewall_disabled': 'Firewall Off',
+                'privilege_escalation': 'Priv Escalation'
+            };
+
+            if (alertsCategoryChart) {
+                alertsCategoryChart.destroy();
+            }
+            
+            // Check if we have category data
+            if (summary.by_category && Object.keys(summary.by_category).length > 0) {
+                const chartData = {};
+                const chartColors = [];
+                let colorIndex = 0;
+
+                Object.entries(summary.by_category).forEach(([key, value]) => {
+                    chartData[categoryLabels[key] || key] = value;
+                    chartColors.push(categoryColors[colorIndex % categoryColors.length]);
+                    colorIndex++;
+                });
+
+                alertsCategoryChart = dashboardUtils.createDonutChart(
+                    'alertsCategoryChart',
+                    chartData,
+                    chartColors
+                );
+            } else {
+                // Create empty chart with placeholder
+                const ctx = document.getElementById('alertsCategoryChart');
+                if (ctx) {
+                    alertsCategoryChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: { 
+                            labels: ['No data'], 
+                            datasets: [{ 
+                                data: [1], 
+                                backgroundColor: ['rgba(154, 160, 166, 0.2)'],
+                                borderWidth: 0
+                            }] 
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { 
+                                legend: { display: false },
+                                tooltip: { enabled: false }
+                            }
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load charts:', error);
+        }
+    }
+    
+    /**
+     * Update charts smoothly without destroy/recreate.
+     * Uses Chart.js data update mechanism for smooth delta-based transitions.
+     */
+    async function updateChartsSmooth() {
+        try {
+            const hours = timeRange === '1h' ? 1 : timeRange === '24h' ? 24 : timeRange === '7d' ? 168 : 720;
+            const response = await fetch(`/api/alerts/summary?hours=${hours}`);
+            const summary = await response.json();
+            
+            // Update timeline chart data in-place with smooth animation
+            if (alertsTimelineChart && summary.timeline && Object.keys(summary.timeline).length > 0) {
+                const labels = Object.keys(summary.timeline).sort();
+                const values = labels.map(key => summary.timeline[key] || 0);
+                
+                // Detect if data spans multiple days
+                let spansMultipleDays = false;
+                if (labels.length >= 2) {
+                    const firstDate = new Date(labels[0]);
+                    const lastDate = new Date(labels[labels.length - 1]);
+                    const daysDiff = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+                    spansMultipleDays = daysDiff > 1;
+                }
+                
+                const formattedLabels = labels.map(label => {
+                    const date = new Date(label);
+                    if (spansMultipleDays) {
+                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + 
+                               ' ' + date.toLocaleTimeString('en-US', { hour: '2-digit', hour12: false }) + ':00';
+                    } else {
+                        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    }
+                });
+                
+                alertsTimelineChart.data.labels = formattedLabels;
+                alertsTimelineChart.data.datasets[0].data = values;
+                alertsTimelineChart.update(); // Default = smooth delta animation
+            }
+            
+            // Update category chart data in-place with smooth animation
+            if (alertsCategoryChart && summary.by_category && Object.keys(summary.by_category).length > 0) {
+                const categoryLabels = {
+                    'failed_login_burst': 'Login Bursts',
+                    'suspicious_path_execution': 'Path Exec',
+                    'security_log_clearing': 'Log Clearing',
+                    'restricted_hours_login': 'Restricted Hours',
+                    'firewall_disabled': 'Firewall Off'
+                };
+                
+                const chartData = {};
+                Object.entries(summary.by_category).forEach(([key, value]) => {
+                    chartData[categoryLabels[key] || key] = value;
+                });
+                
+                alertsCategoryChart.data.labels = Object.keys(chartData);
+                alertsCategoryChart.data.datasets[0].data = Object.values(chartData);
+                alertsCategoryChart.update(); // Default = smooth delta animation
+            }
+            
+        } catch (error) {
+            console.error('Failed to update charts smoothly:', error);
+        }
+    }
+
+    // Filtering and pagination
+    function setupFilters() {
+        document.querySelectorAll('.filter-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                currentBehaviorFilter = chip.dataset.behavior;
+                currentPage = 1;
+                applyFiltersAndPagination();
+            });
+        });
+    }
+
+    function setupSearch() {
+        let debounceTimer;
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                searchQuery = e.target.value;
+                currentPage = 1;
+                applyFiltersAndPagination();
+            }, 300);
+        });
+    }
+
+    // Global filter handlers for filter panel
+    window.applySourceTypeFilter = function (sourceType) {
+        currentPage = 1;
+        applyFiltersAndPagination();
+    };
+
+    window.applyAllFilters = function (filters) {
+        currentPage = 1;
+        applyFiltersAndPagination();
+    };
+
+    window.clearAllFilters = function () {
+        currentBehaviorFilter = 'all';
+        searchQuery = '';
+        document.getElementById('searchInput').value = '';
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        document.querySelector('.filter-chip[data-behavior="all"]').classList.add('active');
+        currentPage = 1;
+        applyFiltersAndPagination();
+    };
+
+    function applyFiltersAndPagination() {
+        // Get global filters from filter panel
+        const globalFilters = window.globalFilters || {};
+
+        let filtered = allAlerts.filter(alert => {
+            // Source type filter (workstation/domain)
+            // For now, all alerts are from workstations since domain is coming soon
+            if (globalFilters.sourceType && globalFilters.sourceType !== 'all') {
+                // In future, check alert's endpoint_type here
+                // Currently treating all as workstation
+                if (globalFilters.sourceType === 'domain') {
+                    return false; // No domain alerts yet
+                }
+            }
+
+            // Behavior filter from chips
+            if (currentBehaviorFilter !== 'all' && alert.behavior !== currentBehaviorFilter) {
+                return false;
+            }
+
+            // Behavior filter from panel
+            if (globalFilters.behavior && alert.behavior !== globalFilters.behavior) {
+                return false;
+            }
+
+            // Severity filter
+            if (globalFilters.severity) {
+                const minRisk = parseInt(globalFilters.severity);
+                if (alert.risk_score < minRisk) {
+                    return false;
+                }
+            }
+
+            // Host filter
+            if (globalFilters.host) {
+                if (!alert.host.toLowerCase().includes(globalFilters.host.toLowerCase())) {
+                    return false;
+                }
+            }
+
+            // User filter
+            if (globalFilters.user) {
+                if (!alert.user.toLowerCase().includes(globalFilters.user.toLowerCase())) {
+                    return false;
+                }
+            }
+
+            // Search query
+            if (searchQuery) {
+                const searchLower = searchQuery.toLowerCase();
+                const searchable = [
+                    alert.host, alert.user, alert.behavior,
+                    BEHAVIOR_LABELS[alert.behavior], alert.summary
+                ].filter(Boolean).join(' ').toLowerCase();
+                return searchable.includes(searchLower);
+            }
+            return true;
+        });
+
+        const totalFiltered = filtered.length;
+        const totalPages = Math.ceil(totalFiltered / ALERTS_PER_PAGE) || 1;
+
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        const startIndex = (currentPage - 1) * ALERTS_PER_PAGE;
+        const endIndex = Math.min(startIndex + ALERTS_PER_PAGE, totalFiltered);
+
+        alerts = filtered.slice(startIndex, endIndex);
+
+        document.getElementById('showingFrom').textContent = totalFiltered > 0 ? startIndex + 1 : 0;
+        document.getElementById('showingTo').textContent = endIndex;
+        document.getElementById('totalAlerts').textContent = totalFiltered;
+        document.getElementById('currentPage').textContent = currentPage;
+        document.getElementById('totalPages').textContent = totalPages;
+
+        document.getElementById('prevPageBtn').disabled = currentPage <= 1;
+        document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
+
+        renderAlerts();
+    }
+
+    function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            applyFiltersAndPagination();
+        }
+    }
+
+    function nextPage() {
+        const totalPages = Math.ceil(allAlerts.length / ALERTS_PER_PAGE);
+        if (currentPage < totalPages) {
+            currentPage++;
+            applyFiltersAndPagination();
+        }
+    }
+
+    // Rendering
+    function renderAlerts() {
+        const tbody = document.getElementById('alertsBody');
+
+        if (alerts.length === 0) {
+            // Check if this is truly no alerts (vs filtered out)
+            const hasAnyAlerts = allAlerts.length > 0;
+            
+            if (!hasAnyAlerts) {
+                // No alerts at all - show comprehensive empty state
+                tbody.innerHTML = `
+            <tr><td colspan="8">
+                <div class="empty-state" style="padding: 60px 40px;">
+                    <div class="empty-state-icon" style="font-size: 48px; margin-bottom: 20px;">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                    </div>
+                    <div class="empty-state-title" style="font-size: 20px; font-weight: 600; margin-bottom: 12px;">No alerts in this time range</div>
+                    <p style="color: var(--text-secondary); margin-bottom: 24px; max-width: 600px;">
+                        The detection pipeline is running. When behavior patterns trigger detection rules, alerts will appear here automatically.
+                    </p>
+                    <div style="background: var(--bg-card-alt); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin: 24px auto; max-width: 700px; text-align: left;">
+                        <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--accent-cyan);">NEXT STEPS</h4>
+                        <ul style="list-style: none; padding: 0; margin: 0;">
+                            <li style="padding: 8px 0; display: flex; align-items: start; gap: 12px;">
+                                <span style="color: var(--accent-cyan); font-weight: bold;">1.</span>
+                                <span style="color: var(--text-secondary);">Generate test activity (e.g., run <code style="background: var(--bg-page); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono);">eventcreate</code>, suspicious PowerShell, repeated logins)</span>
+                            </li>
+                            <li style="padding: 8px 0; display: flex; align-items: start; gap: 12px;">
+                                <span style="color: var(--accent-cyan); font-weight: bold;">2.</span>
+                                <span style="color: var(--text-secondary);">Verify ingestion: <a href="/events" style="color: var(--accent-cyan);">Events page</a> shows new Sysmon/Windows Event data</span>
+                            </li>
+                            <li style="padding: 8px 0; display: flex; align-items: start; gap: 12px;">
+                                <span style="color: var(--accent-cyan); font-weight: bold;">3.</span>
+                                <span style="color: var(--text-secondary);">Verify detection rules are enabled and thresholds are not too high</span>
+                            </li>
+                            <li style="padding: 8px 0; display: flex; align-items: start; gap: 12px;">
+                                <span style="color: var(--accent-cyan); font-weight: bold;">4.</span>
+                                <span style="color: var(--text-secondary);">Check server logs for detection pipeline messages</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <button onclick="forceRefresh()" style="margin-top: 16px; padding: 10px 24px; background: var(--accent-cyan); color: #000; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 8px; margin-left: auto; margin-right: auto;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"/>
+                            <polyline points="1 20 1 14 7 14"/>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                        </svg>
+                        Refresh Alerts
+                    </button>
+                </div>
+            </td></tr>
+        `;
+            } else {
+                // Has alerts but filtered out
+                tbody.innerHTML = `
+            <tr><td colspan="8">
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                    </div>
+                    <div class="empty-state-title">No alerts matched your filters</div>
+                    <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">Try clearing filters or adjusting your search criteria.</p>
+                </div>
+            </td></tr>
+        `;
+            }
+            return;
+        }
+
+        tbody.innerHTML = alerts.map(alert => {
+            const riskClass = alert.risk_score >= 70 ? 'high' : alert.risk_score >= 40 ? 'medium' : 'low';
+            const rowClass = alert.risk_score >= 70 ? 'high-risk' : alert.risk_score >= 40 ? 'medium-risk' : '';
+            const behaviorLabel = BEHAVIOR_LABELS[alert.behavior] || alert.behavior;
+            const source = alert.source_ip ? 'Sysmon' : 'Event Viewer';
+            const occurrences = alert.occurrence_count || 1;
+            const hitsClass = occurrences > 1 ? 'badge-risk-medium' : 'badge-risk-info';
+
+            return `
+            <tr class="${rowClass}" onclick="showAlertDetails(${alert.id})">
+                <td class="mono text-muted">${dashboardUtils.formatTimestamp(alert.timestamp)}</td>
+                <td class="mono">${dashboardUtils.escapeHtml(alert.host)}</td>
+                <td class="mono">${dashboardUtils.escapeHtml(alert.user)}</td>
+                <td><span class="badge badge-behavior">${behaviorLabel}</span></td>
+                <td><span class="badge badge-risk-${riskClass}">${alert.risk_score}</span></td>
+                <td><span class="badge ${hitsClass}">×${occurrences}</span></td>
+                <td class="text-muted">${source}</td>
+                <td class="text-muted">${dashboardUtils.escapeHtml(alert.summary || 'Alert detected')}</td>
+            </tr>
+        `;
+        }).join('');
+    }
+
+    function showAlertDetails(alertId) {
+        const alertData = allAlerts.find(a => a.id === alertId);
+        if (!alertData) return;
+
+        const behaviorLabel = BEHAVIOR_LABELS[alertData.behavior] || alertData.behavior;
+        const riskClass = alertData.risk_score >= 70 ? 'high' : alertData.risk_score >= 40 ? 'medium' : 'low';
+
+        let detailsHTML = `
+        <div class="alert-detail-header">
+            <div class="risk-indicator risk-${riskClass}">
+                <span class="risk-score">${alertData.risk_score}</span>
+                <span class="risk-label">Risk Score</span>
+            </div>
+            <div class="behavior-info">
+                <span class="behavior-badge">${behaviorLabel}</span>
+                <span class="alert-time">${dashboardUtils.formatTimestamp(alertData.timestamp)}</span>
+            </div>
+        </div>
+        
+        <div class="alert-detail-grid">
+            <div class="detail-section">
+                <h4>Target Information</h4>
+                <div class="detail-row">
+                    <span class="detail-label">Host</span>
+                    <span class="detail-value mono">${dashboardUtils.escapeHtml(alertData.host)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">User</span>
+                    <span class="detail-value mono">${dashboardUtils.escapeHtml(alertData.user)}</span>
+                </div>
+                ${alertData.source_ip ? `<div class="detail-row"><span class="detail-label">Source IP</span><span class="detail-value mono">${alertData.source_ip}</span></div>` : ''}
+            </div>
+            
+            <div class="detail-section">
+                <h4>Detection Details</h4>
+                <div class="detail-row">
+                    <span class="detail-label">Behavior Type</span>
+                    <span class="detail-value">${behaviorLabel}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Alert ID</span>
+                    <span class="detail-value mono">${alertData.id}</span>
+                </div>
+                ${alertData.fail_count ? `<div class="detail-row"><span class="detail-label">Failed Attempts</span><span class="detail-value">${alertData.fail_count}</span></div>` : ''}
+                ${alertData.file_event_count ? `<div class="detail-row"><span class="detail-label">File Events</span><span class="detail-value">${alertData.file_event_count}</span></div>` : ''}
+            </div>
+    `;
+
+        // Additional details based on behavior type
+        if (alertData.target_path || alertData.archive_process_name) {
+            detailsHTML += `
+            <div class="detail-section full-width">
+                <h4>Additional Context</h4>
+                ${alertData.target_path ? `<div class="detail-row"><span class="detail-label">Target Path</span><span class="detail-value mono" style="word-break: break-all;">${dashboardUtils.escapeHtml(alertData.target_path)}</span></div>` : ''}
+                ${alertData.archive_process_name ? `<div class="detail-row"><span class="detail-label">Process</span><span class="detail-value mono">${dashboardUtils.escapeHtml(alertData.archive_process_name)}</span></div>` : ''}
+            </div>
+        `;
+        }
+
+        // Summary
+        detailsHTML += `
+            <div class="detail-section full-width">
+                <h4>Summary</h4>
+                <div class="message-box">${dashboardUtils.escapeHtml(alertData.summary || 'No additional details available')}</div>
+            </div>
+        </div>
+    `;
+
+        document.getElementById('alertDetailContent').innerHTML = detailsHTML;
+        document.getElementById('alertDetailModal').classList.add('active');
+    }
+
+    function closeAlertDetail() {
+        document.getElementById('alertDetailModal').classList.remove('active');
+    }
+
+    // Close modal on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeAlertDetail();
+        }
+    });
+
+    function downloadAlerts() {
+        const dataToExport = alerts.length > 0 ? alerts : allAlerts;
+        const csv = convertToCSV(dataToExport);
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `alerts_${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function convertToCSV(data) {
+        const headers = ['ID', 'Timestamp', 'Host', 'User', 'Behavior', 'Risk Score', 'Summary'];
+        const rows = data.map(alert => [
+            alert.id,
+            alert.timestamp,
+            alert.host,
+            alert.user,
+            alert.behavior,
+            alert.risk_score,
+            `"${(alert.summary || '').replace(/"/g, '""')}"`
+        ]);
+        return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    }
+
+    // Update charts theme
+    window.updateChartsTheme = function (theme) {
+        loadCharts();
+    };
+
+    // Live Event Counter
+    let totalEventCount = 0;
+    let eventCountHistory = [];
+    const EVENT_RATE_WINDOW = 60000; // 1 minute
+
+    function updateEventCounter(increment = 1) {
+        totalEventCount += increment;
+        document.getElementById('eventCountValue').textContent = totalEventCount.toLocaleString();
+        
+        // Track event rate
+        const now = Date.now();
+        eventCountHistory.push(now);
+        eventCountHistory = eventCountHistory.filter(t => now - t < EVENT_RATE_WINDOW);
+        
+        const eventsPerMin = eventCountHistory.length;
+        document.getElementById('eventRate').textContent = `${eventsPerMin} events/min`;
+    }
+
+    // Critical Alert Banner
+    function showCriticalBanner(alertText) {
+        const banner = document.getElementById('criticalBanner');
+        const bannerText = document.getElementById('criticalBannerText');
+        bannerText.textContent = '⚠️ ' + alertText;
+        banner.classList.add('show');
+        
+        setTimeout(() => {
+            banner.classList.remove('show');
+        }, 5000);
+    }
+
+    // Enhanced WebSocket handler with animations
+    function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/events`;
+        const ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            console.log('WebSocket connected');
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'new_event') {
+                    updateEventCounter(1);
+                } else if (data.type === 'new_alert') {
+                    const alert = data.alert;
+                    
+                    // Add to alerts list
+                    allAlerts.unshift(alert);
+                    
+                    // Show critical banner for high-risk alerts
+                    if (alert.risk_score >= 70) {
+                        showCriticalBanner(`Critical: ${alert.behavior} on ${alert.host}`);
+                    }
+                    
+                    // Refresh display
+                    applyFiltersAndPagination();
+                    fetchStats();
+                    
+                    // Add animation class to new alert row
+                    setTimeout(() => {
+                        const rows = document.querySelectorAll('#alertsBody tr');
+                        if (rows.length > 0) {
+                            rows[0].classList.add('new-alert');
+                        }
+                    }, 100);
+                }
+            } catch (err) {
+                console.error('WebSocket message error:', err);
+            }
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        ws.onclose = () => {
+            console.log('WebSocket closed, reconnecting in 5s...');
+            setTimeout(connectWebSocket, 5000);
+        };
+    }
+
+    // Start WebSocket connection
+    connectWebSocket();
+</script>
+{% endblock %}

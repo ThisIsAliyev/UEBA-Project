@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}UEBA Dashboard{% endblock %}</title>
+
+    <!-- Theme initialization - MUST be first to prevent flash -->
+    <script>
+        (function() {
+            var savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Dashboard CSS -->
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+
+    <style>
+        /* Filter panel styles */
+        .filter-panel {
+            position: fixed;
+            left: 72px;
+            top: 0;
+            width: 0;
+            height: 100vh;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border-color);
+            z-index: 900;
+            transition: width 0.3s ease;
+            overflow: hidden;
+        }
+
+        .filter-panel.open {
+            width: 280px;
+        }
+
+        .filter-panel-content {
+            width: 280px;
+            height: 100%;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .filter-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .filter-panel-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .filter-panel-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px;
+        }
+
+        .filter-section {
+            margin-bottom: 24px;
+        }
+
+        .filter-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .source-type-filters {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .source-type-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--bg-card-alt);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: var(--font-sans);
+            font-size: 14px;
+            text-align: left;
+        }
+
+        .source-type-btn:hover {
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+        }
+
+        .source-type-btn.active {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .source-type-icon {
+            font-size: 18px;
+        }
+
+        .source-type-info {
+            flex: 1;
+        }
+
+        .source-type-name {
+            font-weight: 500;
+        }
+
+        .source-type-count {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .filter-input-group {
+            margin-bottom: 12px;
+        }
+
+        .filter-input-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .filter-input-group input,
+        .filter-input-group select {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--bg-card-alt);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            font-size: 13px;
+        }
+
+        .filter-input-group input:focus,
+        .filter-input-group select:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .filter-actions button {
+            flex: 1;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-apply-filters {
+            background: var(--accent-cyan);
+            border: none;
+            color: #000;
+            font-weight: 500;
+        }
+
+        .btn-clear-filters {
+            background: var(--bg-card-alt);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        /* Filter toggle button */
+        .filter-toggle-btn {
+            position: fixed;
+            left: 80px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 48px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-left: none;
+            border-radius: 0 8px 8px 0;
+            color: var(--text-secondary);
+            cursor: pointer;
+            z-index: 901;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .filter-toggle-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .filter-panel.open~.filter-toggle-btn {
+            left: 352px;
+        }
+
+        /* Adjust main content when filter is open */
+        .main-wrapper.filter-open {
+            margin-left: 352px;
+        }
+
+        /* User menu */
+        .user-menu {
+            position: relative;
+        }
+
+        .user-menu-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            min-width: 180px;
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+        }
+
+        .user-menu-dropdown.active {
+            display: block;
+        }
+
+        .user-menu-item {
+            display: block;
+            padding: 12px 16px;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 13px;
+            transition: background 0.2s ease;
+        }
+
+        .user-menu-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .user-menu-item:first-child {
+            border-radius: 8px 8px 0 0;
+        }
+
+        .user-menu-item:last-child {
+            border-radius: 0 0 8px 8px;
+        }
+
+        .user-menu-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 4px 0;
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <div class="logo-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                </div>
+                <div class="logo-text">
+                    <div class="logo-title">UEBA</div>
+                    <div class="logo-subtitle">Security</div>
+                </div>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item {% block nav_alerts_active %}{% endblock %}" data-page="alerts" title="Alerts">
+                <span class="nav-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                </span>
+                <span class="nav-label">Alerts</span>
+            </a>
+            <a href="/overview" class="nav-item {% block nav_overview_active %}{% endblock %}" data-page="overview"
+                title="Overview">
+                <span class="nav-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7" />
+                        <rect x="14" y="3" width="7" height="7" />
+                        <rect x="14" y="14" width="7" height="7" />
+                        <rect x="3" y="14" width="7" height="7" />
+                    </svg>
+                </span>
+                <span class="nav-label">Overview</span>
+            </a>
+            <a href="/events" class="nav-item {% block nav_events_active %}{% endblock %}" data-page="events"
+                title="Events">
+                <span class="nav-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="8" y1="6" x2="21" y2="6" />
+                        <line x1="8" y1="12" x2="21" y2="12" />
+                        <line x1="8" y1="18" x2="21" y2="18" />
+                        <line x1="3" y1="6" x2="3.01" y2="6" />
+                        <line x1="3" y1="12" x2="3.01" y2="12" />
+                        <line x1="3" y1="18" x2="3.01" y2="18" />
+                    </svg>
+                </span>
+                <span class="nav-label">Events</span>
+            </a>
+            <a href="/endpoints" class="nav-item {% block nav_endpoints_active %}{% endblock %}" data-page="endpoints"
+                title="Endpoints">
+                <span class="nav-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                        <line x1="8" y1="21" x2="16" y2="21" />
+                        <line x1="12" y1="17" x2="12" y2="21" />
+                    </svg>
+                </span>
+                <span class="nav-label">Endpoints</span>
+            </a>
+            <a href="/agent-users" class="nav-item {% block nav_agent_users_active %}{% endblock %}"
+                data-page="agent-users" title="Agent Users">
+                <span class="nav-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                </span>
+                <span class="nav-label">Agent Users</span>
+            </a>
+            <a href="#" class="nav-item" data-page="policies" title="Policies">
+                <span class="nav-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="4" y1="21" x2="4" y2="14" />
+                        <line x1="4" y1="10" x2="4" y2="3" />
+                        <line x1="12" y1="21" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12" y2="3" />
+                        <line x1="20" y1="21" x2="20" y2="16" />
+                        <line x1="20" y1="12" x2="20" y2="3" />
+                        <line x1="1" y1="14" x2="7" y2="14" />
+                        <line x1="9" y1="8" x2="15" y2="8" />
+                        <line x1="17" y1="16" x2="23" y2="16" />
+                    </svg>
+                </span>
+                <span class="nav-label">Policies</span>
+            </a>
+            <a href="#" class="nav-item" data-page="settings" title="Settings">
+                <span class="nav-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3" />
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                </span>
+                <span class="nav-label">Settings</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Filter Panel (only shown on alerts/events pages) -->
+    {% if show_filters is not defined or show_filters %}
+    <div class="filter-panel" id="filterPanel">
+        <div class="filter-panel-content">
+            <div class="filter-panel-header">
+                <span class="filter-panel-title">Filters</span>
+                <button class="filter-panel-close" onclick="toggleFilterPanel()">&times;</button>
+            </div>
+
+            <div class="filter-section">
+                <div class="filter-section-title">Source Type</div>
+                <div class="source-type-filters">
+                    <button class="source-type-btn active" data-source-type="all" onclick="setSourceTypeFilter('all')">
+                        <span class="source-type-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.5">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="2" y1="12" x2="22" y2="12" />
+                                <path
+                                    d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                            </svg>
+                        </span>
+                        <div class="source-type-info">
+                            <div class="source-type-name">All Sources</div>
+                            <div class="source-type-count" id="countAllSources">-</div>
+                        </div>
+                    </button>
+                    <button class="source-type-btn" data-source-type="workstation"
+                        onclick="setSourceTypeFilter('workstation')">
+                        <span class="source-type-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.5">
+                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                                <line x1="8" y1="21" x2="16" y2="21" />
+                                <line x1="12" y1="17" x2="12" y2="21" />
+                            </svg>
+                        </span>
+                        <div class="source-type-info">
+                            <div class="source-type-name">Workstation</div>
+                            <div class="source-type-count" id="countWorkstation">{% if endpoint_stats %}{{
+                                endpoint_stats.workstations }} endpoints{% else %}-{% endif %}</div>
+                        </div>
+                    </button>
+                    <button class="source-type-btn" data-source-type="domain" onclick="setSourceTypeFilter('domain')">
+                        <span class="source-type-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.5">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                                <polyline points="9 22 9 12 15 12 15 22" />
+                            </svg>
+                        </span>
+                        <div class="source-type-info">
+                            <div class="source-type-name">Domain</div>
+                            <div class="source-type-count" id="countDomain">{% if endpoint_stats %}{{
+                                endpoint_stats.domains }} endpoints{% else %}-{% endif %}</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <div class="filter-section-title">Advanced Filters</div>
+
+                <div class="filter-input-group">
+                    <label for="filterHost">Host</label>
+                    <input type="text" id="filterHost" placeholder="e.g., WORKSTATION-01">
+                </div>
+
+                <div class="filter-input-group">
+                    <label for="filterUser">User</label>
+                    <input type="text" id="filterUser" placeholder="e.g., john.doe">
+                </div>
+
+                <div class="filter-input-group" id="filterBehaviorGroup">
+                    <label for="filterBehavior">Behavior</label>
+                    <select id="filterBehavior">
+                        <option value="">All Behaviors</option>
+                        <option value="failed_login_burst">Failed Login Burst</option>
+                        <option value="suspicious_path_execution">Suspicious Path Execution</option>
+                        <option value="security_log_clearing">Security Log Clearing</option>
+                        <option value="restricted_hours_login">Restricted Hours Login</option>
+                        <option value="firewall_disabled">Firewall Disabled</option>
+                    </select>
+                </div>
+
+                <div class="filter-input-group" id="filterSeverityGroup">
+                    <label for="filterSeverity">Minimum Risk Score</label>
+                    <select id="filterSeverity">
+                        <option value="">Any</option>
+                        <option value="70">High (70+)</option>
+                        <option value="40">Medium (40+)</option>
+                    </select>
+                </div>
+
+                <div class="filter-input-group" id="filterEventSourceGroup">
+                    <label for="filterEventSource">Event Source</label>
+                    <select id="filterEventSource">
+                        <option value="">All Sources</option>
+                        <option value="sysmon">Sysmon</option>
+                        <option value="windows_event">Event Viewer</option>
+                    </select>
+                </div>
+
+                <div class="filter-actions">
+                    <button class="btn-apply-filters" onclick="applyAdvancedFilters()">Apply</button>
+                    <button class="btn-clear-filters" onclick="clearAdvancedFilters()">Clear</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Toggle Button -->
+    <button class="filter-toggle-btn" id="filterToggleBtn" onclick="toggleFilterPanel()" title="Toggle Filters">
+        ◀
+    </button>
+    {% endif %}
+
+    <!-- Main Content Area -->
+    <div class="main-wrapper" id="mainWrapper">
+        <!-- Top Header Bar -->
+        <header class="top-header">
+            <div class="header-left">
+                <h1 class="page-title">{% block page_title %}UEBA Dashboard{% endblock %}</h1>
+                <p class="page-subtitle">{% block page_subtitle %}Real-time security monitoring{% endblock %}</p>
+            </div>
+
+            <div class="header-center">
+                <select class="time-range-select" id="timeRangeSelect">
+                    <option value="1h">Last Hour</option>
+                    <option value="24h" selected>Last 24 Hours</option>
+                    <option value="7d">Last 7 Days</option>
+                    <option value="30d">Last 30 Days</option>
+                </select>
+            </div>
+
+            <div class="header-right">
+                <div class="status-pill" id="statusPill">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Live</span>
+                </div>
+                <button class="icon-btn" id="notificationsBtn" title="Notifications">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                </button>
+                <div class="user-menu">
+                    <div class="user-avatar" id="userAvatar" title="User" onclick="toggleUserMenu()">
+                        <span>{% if user %}{{ user.username[0] | upper }}{% else %}U{% endif %}</span>
+                    </div>
+                    <div class="user-menu-dropdown" id="userMenuDropdown">
+                        <span class="user-menu-item" style="color: var(--text-secondary); cursor: default;">
+                            {% if user %}{{ user.username }}{% else %}User{% endif %}
+                        </span>
+                        <div class="user-menu-divider"></div>
+                        <a href="/endpoints" class="user-menu-item">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.5" style="margin-right: 8px; vertical-align: middle;">
+                                <circle cx="12" cy="12" r="3" />
+                                <path
+                                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                            </svg>
+                            Endpoint Management
+                        </a>
+                        <a href="/logout" class="user-menu-item">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.5" style="margin-right: 8px; vertical-align: middle;">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                                <polyline points="16 17 21 12 16 7" />
+                                <line x1="21" y1="12" x2="9" y2="12" />
+                            </svg>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+                <button class="icon-btn theme-toggle" id="themeToggle" title="Toggle Theme">
+                    <span id="themeIcon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        </svg>
+                    </span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="page-content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Dashboard JS -->
+    <script src="/static/js/dashboard.js"></script>
+
+    <script>
+        // Filter panel state
+        let filterPanelOpen = false;
+        let currentSourceTypeFilter = 'all';
+
+        // Store filter state globally so it persists across tab switches
+        window.globalFilters = {
+            sourceType: 'all',
+            host: '',
+            user: '',
+            behavior: '',
+            severity: '',
+            eventSource: ''
+        };
+
+        function toggleFilterPanel() {
+            filterPanelOpen = !filterPanelOpen;
+            const panel = document.getElementById('filterPanel');
+            const mainWrapper = document.getElementById('mainWrapper');
+            const toggleBtn = document.getElementById('filterToggleBtn');
+
+            if (filterPanelOpen) {
+                panel.classList.add('open');
+                mainWrapper.classList.add('filter-open');
+                toggleBtn.textContent = '▶';
+            } else {
+                panel.classList.remove('open');
+                mainWrapper.classList.remove('filter-open');
+                toggleBtn.textContent = '◀';
+            }
+        }
+
+        function setSourceTypeFilter(sourceType) {
+            currentSourceTypeFilter = sourceType;
+            window.globalFilters.sourceType = sourceType;
+
+            // Update UI
+            document.querySelectorAll('.source-type-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.sourceType === sourceType) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Trigger filter application if handler exists
+            if (typeof window.applySourceTypeFilter === 'function') {
+                window.applySourceTypeFilter(sourceType);
+            }
+        }
+
+        function applyAdvancedFilters() {
+            window.globalFilters.host = document.getElementById('filterHost').value;
+            window.globalFilters.user = document.getElementById('filterUser').value;
+            window.globalFilters.behavior = document.getElementById('filterBehavior')?.value || '';
+            window.globalFilters.severity = document.getElementById('filterSeverity')?.value || '';
+            window.globalFilters.eventSource = document.getElementById('filterEventSource')?.value || '';
+
+            // Trigger filter application if handler exists
+            if (typeof window.applyAllFilters === 'function') {
+                window.applyAllFilters(window.globalFilters);
+            }
+        }
+
+        function clearAdvancedFilters() {
+            document.getElementById('filterHost').value = '';
+            document.getElementById('filterUser').value = '';
+            if (document.getElementById('filterBehavior')) {
+                document.getElementById('filterBehavior').value = '';
+            }
+            if (document.getElementById('filterSeverity')) {
+                document.getElementById('filterSeverity').value = '';
+            }
+            if (document.getElementById('filterEventSource')) {
+                document.getElementById('filterEventSource').value = '';
+            }
+
+            window.globalFilters.host = '';
+            window.globalFilters.user = '';
+            window.globalFilters.behavior = '';
+            window.globalFilters.severity = '';
+            window.globalFilters.eventSource = '';
+
+            // Reset source type to all
+            setSourceTypeFilter('all');
+
+            // Trigger filter clear if handler exists
+            if (typeof window.clearAllFilters === 'function') {
+                window.clearAllFilters();
+            }
+        }
+
+        // User menu
+        function toggleUserMenu() {
+            const dropdown = document.getElementById('userMenuDropdown');
+            dropdown.classList.toggle('active');
+        }
+
+        // Close user menu when clicking outside
+        document.addEventListener('click', (e) => {
+            const userMenu = document.querySelector('.user-menu');
+            const dropdown = document.getElementById('userMenuDropdown');
+            if (!userMenu.contains(e.target)) {
+                dropdown.classList.remove('active');
+            }
+        });
+
+        // Restore filter state on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if we have stored filter state
+            const storedFilters = sessionStorage.getItem('globalFilters');
+            if (storedFilters) {
+                window.globalFilters = JSON.parse(storedFilters);
+
+                // Restore UI state
+                setSourceTypeFilter(window.globalFilters.sourceType);
+                document.getElementById('filterHost').value = window.globalFilters.host || '';
+                document.getElementById('filterUser').value = window.globalFilters.user || '';
+                if (document.getElementById('filterBehavior')) {
+                    document.getElementById('filterBehavior').value = window.globalFilters.behavior || '';
+                }
+                if (document.getElementById('filterSeverity')) {
+                    document.getElementById('filterSeverity').value = window.globalFilters.severity || '';
+                }
+                if (document.getElementById('filterEventSource')) {
+                    document.getElementById('filterEventSource').value = window.globalFilters.eventSource || '';
+                }
+            }
+        });
+
+        // Store filter state before navigating away
+        window.addEventListener('beforeunload', () => {
+            sessionStorage.setItem('globalFilters', JSON.stringify(window.globalFilters));
+        });
+
+        // Also store on link clicks
+        document.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                sessionStorage.setItem('globalFilters', JSON.stringify(window.globalFilters));
+            });
+        });
+        
+        // Time range dropdown - connect to page-specific handler
+        const timeRangeSelect = document.getElementById('timeRangeSelect');
+        if (timeRangeSelect) {
+            timeRangeSelect.addEventListener('change', (e) => {
+                const selectedRange = e.target.value;
+                console.log('Time range changed to:', selectedRange);
+                
+                // Save to session storage immediately for persistence
+                sessionStorage.setItem('selectedTimeRange', selectedRange);
+                
+                // Call page-specific handler if it exists
+                if (typeof window.handleTimeRangeChange === 'function') {
+                    window.handleTimeRangeChange(selectedRange);
+                }
+            });
+            
+            // Restore saved time range from session storage on page load
+            const savedRange = sessionStorage.getItem('selectedTimeRange');
+            if (savedRange) {
+                timeRangeSelect.value = savedRange;
+                console.log('Restored time range from session:', savedRange);
+            }
+            
+            // Trigger initial load with saved range if handler exists
+            if (typeof window.handleTimeRangeChange === 'function' && savedRange) {
+                // Delay to ensure page is fully loaded
+                setTimeout(() => {
+                    window.handleTimeRangeChange(savedRange);
+                }, 100);
+            }
+        }
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+
+</html>

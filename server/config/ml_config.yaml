@@ -1,0 +1,33 @@
+# MVP P0: ML Configuration
+
+ml:
+  random_seed: 42
+  model_version: "1.0.0"
+  
+  # IsolationForest settings
+  isolation_forest:
+    n_estimators: 100
+    contamination: 0.05  # Expected anomaly rate (5%)
+    max_samples: 256
+    random_state: 42
+  
+  # Baseline training
+  baseline:
+    min_events: 50  # Minimum events for reliable baseline
+    window_hours: 6  # Default training window (configurable via settings)
+    top_n_processes: 50  # Top N processes to track
+    top_n_domains: 50  # Top N domains to track
+  
+  # Anomaly detection
+  anomaly:
+    threshold: 0.7  # Score threshold for alert generation (0-1)
+    scan_window_hours: 1  # Time window for scanning
+    scan_interval_minutes: 60  # How often to run scans
+  
+  # Feature weights (for explainability)
+  feature_weights:
+    unusual_hour: 30
+    rare_process: 40
+    spike: 25
+    rare_domain: 20
+

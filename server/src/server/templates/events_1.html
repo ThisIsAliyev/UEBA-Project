@@ -1,0 +1,2570 @@
+{% extends "base.html" %}
+
+{% block title %}UEBA Event Viewer{% endblock %}
+
+{% block nav_events_active %}active{% endblock %}
+
+{% block page_title %}UEBA Event Viewer{% endblock %}
+{% block page_subtitle %}Multi-source log pipeline and real-time monitoring{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Event Detail Modal */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .modal-overlay.active {
+        display: flex;
+    }
+
+    .modal {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        width: 100%;
+        max-width: 800px;
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-card-alt);
+    }
+
+    .modal-title {
+        font-size: 18px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 28px;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        transition: color 0.2s;
+    }
+
+    .modal-close:hover {
+        color: var(--text-primary);
+    }
+
+    .modal-body {
+        padding: 24px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    /* ============================================ */
+    /* Professional Filter Drawer */
+    /* ============================================ */
+    .filter-drawer-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 900;
+    }
+
+    .filter-drawer-overlay.active {
+        display: block;
+    }
+
+    .filter-drawer {
+        position: fixed;
+        top: 0;
+        right: -420px;
+        width: 400px;
+        height: 100vh;
+        background: var(--bg-card);
+        border-left: 1px solid var(--border-color);
+        z-index: 901;
+        display: flex;
+        flex-direction: column;
+        transition: right 0.3s ease;
+        box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .filter-drawer.active {
+        right: 0;
+    }
+
+    .filter-drawer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-card-alt);
+    }
+
+    .filter-drawer-title {
+        font-size: 16px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .filter-drawer-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-card-alt);
+    }
+
+    .filter-drawer-tab {
+        flex: 1;
+        padding: 12px 16px;
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        border-bottom: 2px solid transparent;
+    }
+
+    .filter-drawer-tab:hover {
+        color: var(--text-primary);
+        background: var(--bg-hover);
+    }
+
+    .filter-drawer-tab.active {
+        color: var(--accent-cyan);
+        border-bottom-color: var(--accent-cyan);
+    }
+
+    .filter-drawer-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px 24px;
+    }
+
+    .filter-drawer-footer {
+        padding: 16px 24px;
+        border-top: 1px solid var(--border-color);
+        background: var(--bg-card-alt);
+        display: flex;
+        gap: 12px;
+    }
+
+    .filter-section {
+        margin-bottom: 20px;
+    }
+
+    .filter-section-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
+    }
+
+    .filter-input {
+        width: 100%;
+        padding: 10px 12px;
+        background: var(--bg-page);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 13px;
+        transition: border-color 0.2s;
+    }
+
+    .filter-input:focus {
+        outline: none;
+        border-color: var(--accent-cyan);
+    }
+
+    .filter-input::placeholder {
+        color: var(--text-muted);
+    }
+
+    .filter-select {
+        width: 100%;
+        padding: 10px 12px;
+        background: var(--bg-page);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 13px;
+        cursor: pointer;
+    }
+
+    .filter-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .filter-btn {
+        flex: 1;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .filter-btn-primary {
+        background: var(--accent-cyan);
+        border: none;
+        color: #000;
+    }
+
+    .filter-btn-primary:hover {
+        background: var(--accent-cyan-hover);
+    }
+
+    .filter-btn-secondary {
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+    }
+
+    .filter-btn-secondary:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+    }
+
+    /* Active Filter Chips */
+    .active-filters-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px 0;
+        min-height: 20px;
+    }
+
+    .active-filter-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        background: var(--bg-card-alt);
+        border: 1px solid var(--accent-cyan);
+        border-radius: 20px;
+        font-size: 12px;
+        color: var(--accent-cyan);
+    }
+
+    .active-filter-chip .chip-label {
+        color: var(--text-muted);
+    }
+
+    .active-filter-chip .chip-remove {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        transition: all 0.2s;
+    }
+
+    .active-filter-chip .chip-remove:hover {
+        background: var(--accent-cyan);
+        color: #000;
+    }
+
+    /* Hidden Events Indicator */
+    .hidden-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: var(--bg-card-alt);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
+    .hidden-indicator.has-hidden {
+        border-color: var(--accent-amber);
+        color: var(--accent-amber);
+    }
+
+    .hidden-toggle {
+        background: none;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        text-decoration: underline;
+        font-size: 12px;
+    }
+
+    /* Noise Rules Panel */
+    .noise-rules-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .noise-rule-item {
+        background: var(--bg-page);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 12px;
+    }
+
+    .noise-rule-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .noise-rule-name {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
+    .noise-rule-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .noise-rule-btn {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+
+    .noise-rule-btn:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+    }
+
+    .noise-rule-btn.enabled {
+        color: var(--accent-cyan);
+    }
+
+    .noise-rule-details {
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+
+    .noise-rule-pattern {
+        font-family: var(--font-mono);
+        background: var(--bg-card-alt);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+    }
+
+    .noise-empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-muted);
+    }
+
+    .noise-empty-state svg {
+        margin-bottom: 12px;
+        opacity: 0.5;
+    }
+
+    /* Context Menu */
+    .context-menu {
+        position: fixed;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        z-index: 1000;
+        min-width: 200px;
+        padding: 6px 0;
+        display: none;
+    }
+
+    .context-menu.active {
+        display: block;
+    }
+
+    .context-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        color: var(--text-primary);
+        font-size: 13px;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .context-menu-item:hover {
+        background: var(--bg-hover);
+    }
+
+    .context-menu-item svg {
+        color: var(--text-muted);
+    }
+
+    .context-menu-divider {
+        height: 1px;
+        background: var(--border-color);
+        margin: 6px 0;
+    }
+
+    .context-menu-item.danger {
+        color: var(--accent-red, #ff4444);
+    }
+
+    /* Filter Toggle Button */
+    .btn-filter-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background: var(--bg-card-alt);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-filter-toggle:hover {
+        background: var(--bg-hover);
+        border-color: var(--accent-cyan);
+    }
+
+    .btn-filter-toggle.has-filters {
+        border-color: var(--accent-cyan);
+        color: var(--accent-cyan);
+    }
+
+    .filter-count-badge {
+        background: var(--accent-cyan);
+        color: #000;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 10px;
+        min-width: 18px;
+        text-align: center;
+    }
+
+    /* Clickable table cells for quick filter */
+    .data-table td.filterable {
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .data-table td.filterable:hover {
+        background: var(--bg-hover);
+    }
+
+    /* Row highlight for hidden preview */
+    .data-table tr.hidden-preview {
+        opacity: 0.4;
+        background: repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 10px,
+            var(--bg-card-alt) 10px,
+            var(--bg-card-alt) 20px
+        );
+    }
+
+    /* Event Detail Grid */
+    .event-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+    }
+
+    .detail-section {
+        background: var(--bg-card-alt);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px;
+    }
+
+    .detail-section.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .detail-section h4 {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--accent-cyan);
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-color);
+        gap: 16px;
+    }
+
+    .detail-row:last-child {
+        border-bottom: none;
+    }
+
+    .detail-label {
+        font-size: 12px;
+        color: var(--text-muted);
+        flex-shrink: 0;
+        min-width: 100px;
+    }
+
+    .detail-value {
+        font-size: 13px;
+        color: var(--text-primary);
+        text-align: right;
+        word-break: break-word;
+    }
+
+    .detail-value.mono {
+        font-family: var(--font-mono);
+        font-size: 12px;
+    }
+
+    .message-box {
+        background: var(--bg-page);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--text-secondary);
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    @media (max-width: 768px) {
+        .event-detail-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .detail-row {
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .detail-value {
+            text-align: left;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Metrics Row -->
+<div class="metrics-row">
+    <div class="metric-card">
+        <div class="metric-label">Total Events</div>
+        <div class="metric-value" id="metricTotal">-</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Last Hour</div>
+        <div class="metric-value highlight-cyan" id="metricHour">-</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Sysmon Events</div>
+        <div class="metric-value highlight-cyan" id="metricSysmon">-</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Event Viewer</div>
+        <div class="metric-value highlight-amber" id="metricWinEvent">-</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Unique Hosts</div>
+        <div class="metric-value" id="metricHosts">-</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Unique Users</div>
+        <div class="metric-value" id="metricUsers">-</div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="charts-row">
+    <div class="chart-card">
+        <div class="chart-title">Events Over Time (Last 24 Hours)</div>
+        <div class="chart-container">
+            <canvas id="eventsTimelineChart"></canvas>
+        </div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-title">Events by Source</div>
+        <div class="chart-container">
+            <canvas id="eventsSourceChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Events Table -->
+<div class="table-card">
+    <div class="table-controls">
+        <div class="filter-chips" id="filterChips">
+            <button class="filter-chip active" data-source="all">All Sources</button>
+            <button class="filter-chip" data-source="sysmon">Sysmon</button>
+            <button class="filter-chip" data-source="windows_event">Event Viewer</button>
+            <button class="filter-chip" data-source="linux_auth">Linux Auth</button>
+            <button class="filter-chip" data-source="linux_syslog">Linux Syslog</button>
+            <button class="filter-chip" data-source="linux_journal">Linux Journal</button>
+            <button class="filter-chip" data-source="linux_audit">Linux Audit</button>
+        </div>
+        <div class="table-actions">
+            <div class="search-input">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input type="text" id="searchInput" placeholder="Search events...">
+            </div>
+            <button class="btn-filter-toggle" id="filterToggleBtn" onclick="toggleFilterDrawer()" title="Advanced Filters">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                </svg>
+                Filters
+                <span class="filter-count-badge" id="filterCountBadge" style="display: none;">0</span>
+            </button>
+            <button class="btn-refresh" onclick="forceRefresh()" title="Refresh events" style="display: flex; align-items: center; gap: 6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <polyline points="1 20 1 14 7 14"/>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+            </button>
+            <button class="btn-download" onclick="downloadEvents()" style="display: flex; align-items: center; gap: 6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Download
+            </button>
+        </div>
+    </div>
+
+    <!-- Active Filters Bar -->
+    <div class="active-filters-bar" id="activeFiltersBar"></div>
+
+    <!-- Hidden Events Indicator -->
+    <div class="hidden-indicator" id="hiddenIndicator" style="display: none; margin-bottom: 12px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+        <span id="hiddenCountText">0 events hidden by noise rules</span>
+        <button class="hidden-toggle" id="showHiddenToggle" onclick="toggleShowHidden()">Show hidden</button>
+    </div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Source</th>
+                <th>Host</th>
+                <th>User</th>
+                <th>Event ID</th>
+                <th>Category</th>
+                <th>Risk Score</th>
+                <th>Risk Level</th>
+                <th>Message</th>
+            </tr>
+        </thead>
+        <tbody id="eventsBody">
+            <tr>
+                <td colspan="9">
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <span>Loading events...</span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="table-footer">
+        <div class="table-info">
+            Showing <span id="showingFrom">0</span>-<span id="showingTo">0</span> of <span id="totalEvents">0</span>
+            events
+        </div>
+        <div class="pagination">
+            <button class="pagination-btn" id="prevPageBtn" onclick="prevPage()" disabled>← Previous</button>
+            <span class="pagination-info">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
+            <button class="pagination-btn" id="nextPageBtn" onclick="nextPage()">Next →</button>
+        </div>
+    </div>
+</div>
+
+<!-- Event Detail Modal -->
+<div class="modal-overlay" id="eventDetailModal" onclick="if(event.target === this) closeEventDetail()">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                Event Details
+            </span>
+            <button class="modal-close" onclick="closeEventDetail()">&times;</button>
+        </div>
+        <div class="modal-body" id="eventDetailContent">
+            <!-- Filled dynamically -->
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal-overlay" id="exportModal" onclick="if(event.target === this) closeExportModal()">
+    <div class="modal" style="max-width: 400px;">
+        <div class="modal-header">
+            <span class="modal-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Export Events
+            </span>
+            <button class="modal-close" onclick="closeExportModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom: 20px;">
+                <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                    Choose what to export:
+                </p>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <button class="export-option-btn" onclick="exportEvents('page')">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <div>
+                            <div style="font-weight: 600;">This Page</div>
+                            <div style="font-size: 12px; color: var(--text-muted);">
+                                Export <span id="exportPageCount">0</span> visible events
+                            </div>
+                        </div>
+                    </button>
+                    
+                    <button class="export-option-btn" onclick="exportEvents('all')">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                        </svg>
+                        <div>
+                            <div style="font-weight: 600;">All Results</div>
+                            <div style="font-size: 12px; color: var(--text-muted);">
+                                Export all <span id="exportAllCount">0</span> matching events (CSV)
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+            
+            <div style="padding-top: 12px; border-top: 1px solid var(--border-color);">
+                <div style="font-size: 12px; color: var(--text-muted);">
+                    <strong>Current Filters:</strong>
+                    <span id="exportFiltersInfo">None</span>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+                    Note: Export includes all matching events regardless of noise rules.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Drawer Overlay -->
+<div class="filter-drawer-overlay" id="filterDrawerOverlay" onclick="closeFilterDrawer()"></div>
+
+<!-- Professional Filter Drawer -->
+<div class="filter-drawer" id="filterDrawer">
+    <div class="filter-drawer-header">
+        <span class="filter-drawer-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            Filters & Noise Rules
+        </span>
+        <button class="modal-close" onclick="closeFilterDrawer()">&times;</button>
+    </div>
+    
+    <div class="filter-drawer-tabs">
+        <button class="filter-drawer-tab active" data-tab="filters" onclick="switchDrawerTab('filters')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            Filters
+        </button>
+        <button class="filter-drawer-tab" data-tab="noise" onclick="switchDrawerTab('noise')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+            Noise Rules
+        </button>
+    </div>
+    
+    <!-- Filters Tab Content -->
+    <div class="filter-drawer-body" id="filtersTabContent">
+        <div class="filter-section">
+            <div class="filter-section-title">Event Source</div>
+            <select class="filter-select" id="filterSource">
+                <option value="">All Sources</option>
+                <option value="sysmon">Sysmon</option>
+                <option value="windows_event">Event Viewer</option>
+                <option value="linux_auth">Linux Auth</option>
+                <option value="linux_syslog">Linux Syslog</option>
+                <option value="linux_journal">Linux Journal</option>
+                <option value="linux_audit">Linux Audit</option>
+            </select>
+        </div>
+        
+        <div class="filter-section">
+            <div class="filter-section-title">Category</div>
+            <select class="filter-select" id="filterCategory">
+                <option value="">All Categories</option>
+                <option value="auth">Authentication</option>
+                <option value="process">Process</option>
+                <option value="network">Network</option>
+                <option value="file">File</option>
+                <option value="registry">Registry</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        
+        <div class="filter-section">
+            <div class="filter-section-title">Host</div>
+            <input type="text" class="filter-input" id="filterHost" placeholder="Filter by hostname...">
+        </div>
+        
+        <div class="filter-section">
+            <div class="filter-section-title">User</div>
+            <input type="text" class="filter-input" id="filterUser" placeholder="Filter by username...">
+        </div>
+        
+        <div class="filter-section">
+            <div class="filter-section-title">Event ID</div>
+            <input type="text" class="filter-input" id="filterEventId" placeholder="e.g., 4624, 4625, 1">
+        </div>
+        
+        <div class="filter-section">
+            <div class="filter-section-title">Provider</div>
+            <input type="text" class="filter-input" id="filterProvider" placeholder="e.g., Microsoft-Windows-Sysmon">
+        </div>
+        
+        <div class="filter-section">
+            <div class="filter-section-title">Process Name</div>
+            <input type="text" class="filter-input" id="filterProcessName" placeholder="e.g., powershell.exe">
+        </div>
+        
+        <div class="filter-section">
+            <div class="filter-section-title">Risk Level</div>
+            <select class="filter-select" id="filterRiskLevel">
+                <option value="">All Risk Levels</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+                <option value="info">Info</option>
+            </select>
+        </div>
+        
+        <div class="filter-section">
+            <div class="filter-section-title">Risk Score Range</div>
+            <div class="filter-row">
+                <input type="number" class="filter-input" id="filterRiskMin" placeholder="Min (0)" min="0" max="100">
+                <input type="number" class="filter-input" id="filterRiskMax" placeholder="Max (100)" min="0" max="100">
+            </div>
+        </div>
+        
+        <div class="filter-section">
+            <div class="filter-section-title">Message Contains</div>
+            <input type="text" class="filter-input" id="filterMessage" placeholder="Search in message...">
+        </div>
+    </div>
+    
+    <!-- Noise Rules Tab Content -->
+    <div class="filter-drawer-body" id="noiseTabContent" style="display: none;">
+        <div style="margin-bottom: 16px; padding: 12px; background: var(--bg-page); border-radius: 8px; border: 1px solid var(--border-color);">
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">
+                Noise rules hide repetitive events from the table display only. They do not affect database storage, detections, alerts, or exports.
+            </p>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+            <button class="filter-btn filter-btn-secondary" style="width: 100%;" onclick="showAddNoiseRuleModal()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Add Noise Rule
+            </button>
+        </div>
+        
+        <div class="noise-rules-list" id="noiseRulesList">
+            <!-- Populated dynamically -->
+        </div>
+    </div>
+    
+    <div class="filter-drawer-footer">
+        <button class="filter-btn filter-btn-secondary" onclick="clearAllAdvancedFilters()">Clear All</button>
+        <button class="filter-btn filter-btn-primary" onclick="applyAdvancedFilters()">Apply Filters</button>
+    </div>
+</div>
+
+<!-- Context Menu for Right-Click -->
+<div class="context-menu" id="contextMenu">
+    <div class="context-menu-item" onclick="quickFilterFromContext('host')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        Filter by this Host
+    </div>
+    <div class="context-menu-item" onclick="quickFilterFromContext('user')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+        </svg>
+        Filter by this User
+    </div>
+    <div class="context-menu-item" onclick="quickFilterFromContext('event_id')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4 7 4 4 20 4 20 7"/>
+            <line x1="9" y1="20" x2="15" y2="20"/>
+            <line x1="12" y1="4" x2="12" y2="20"/>
+        </svg>
+        Filter by Event ID
+    </div>
+    <div class="context-menu-item" onclick="quickFilterFromContext('provider')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+        </svg>
+        Filter by Provider
+    </div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="addNoiseRuleFromContext()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+        Hide events like this...
+    </div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="viewEventFromContext()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+        </svg>
+        View Details
+    </div>
+</div>
+
+<!-- Add Noise Rule Modal -->
+<div class="modal-overlay" id="addNoiseRuleModal" onclick="if(event.target === this) closeAddNoiseRuleModal()">
+    <div class="modal" style="max-width: 500px;">
+        <div class="modal-header">
+            <span class="modal-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+                Add Noise Rule
+            </span>
+            <button class="modal-close" onclick="closeAddNoiseRuleModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">
+                This rule will hide matching events from the display only. Events are still stored and processed for detection.
+            </p>
+            
+            <div class="filter-section">
+                <div class="filter-section-title">Rule Name</div>
+                <input type="text" class="filter-input" id="noiseRuleName" placeholder="e.g., Hide PowerShell Policy Tests">
+            </div>
+            
+            <div class="filter-section">
+                <div class="filter-section-title">Match Field</div>
+                <select class="filter-select" id="noiseRuleField">
+                    <option value="message">Message</option>
+                    <option value="process_name">Process Name</option>
+                    <option value="provider">Provider</option>
+                    <option value="event_id">Event ID</option>
+                    <option value="host">Host</option>
+                    <option value="user">User</option>
+                    <option value="command_line">Command Line</option>
+                    <option value="target_filename">File Path</option>
+                </select>
+            </div>
+            
+            <div class="filter-section">
+                <div class="filter-section-title">Match Type</div>
+                <select class="filter-select" id="noiseRuleMatchType">
+                    <option value="contains">Contains</option>
+                    <option value="exact">Exact Match</option>
+                    <option value="startswith">Starts With</option>
+                    <option value="endswith">Ends With</option>
+                </select>
+            </div>
+            
+            <div class="filter-section">
+                <div class="filter-section-title">Match Pattern</div>
+                <input type="text" class="filter-input" id="noiseRulePattern" placeholder="e.g., _PSScriptPolicyTest_">
+            </div>
+            
+            <div style="display: flex; gap: 12px; margin-top: 20px;">
+                <button class="filter-btn filter-btn-secondary" style="flex: 1;" onclick="closeAddNoiseRuleModal()">Cancel</button>
+                <button class="filter-btn filter-btn-primary" style="flex: 1;" onclick="saveNoiseRule()">Add Rule</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .export-option-btn {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        background: var(--bg-card-alt);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        color: var(--text-primary);
+        cursor: pointer;
+        text-align: left;
+        transition: all 0.2s ease;
+        font-family: var(--font-sans);
+    }
+    
+    .export-option-btn:hover {
+        background: var(--bg-hover);
+        border-color: var(--accent-cyan);
+    }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // ============================================
+    // Events Page JavaScript
+    // ============================================
+
+    const REFRESH_INTERVAL = {{ refresh_interval }};
+    let EVENTS_PER_PAGE = {{ events_per_page }};
+
+    const SOURCE_LABELS = {
+        'sysmon': 'Sysmon',
+        'windows_event': 'Event Viewer',
+        'unknown': 'Unknown'
+    };
+
+    let events = [];
+    let allEvents = [];
+    let latestEventId = 0;
+    let currentSourceFilter = 'all';
+    let searchQuery = '';
+    let currentPage = 1;
+    let eventsTimelineChart = null;
+    let eventsSourceChart = null;
+    let timeRange = '24h';
+    
+    // Throttle chart updates to prevent animation reset on every event
+    let chartUpdatePending = false;
+    let lastChartUpdate = 0;
+    const CHART_UPDATE_INTERVAL = 1000; // Update charts max once per second
+
+    // ============================================
+    // Advanced Filters State
+    // ============================================
+    let advancedFilters = {
+        source: '',
+        category: '',
+        host: '',
+        user: '',
+        eventId: '',
+        provider: '',
+        processName: '',
+        riskLevel: '',
+        riskMin: null,
+        riskMax: null,
+        message: ''
+    };
+
+    // ============================================
+    // Noise Rules System (GUI-only, localStorage)
+    // ============================================
+    let noiseRules = [];
+    let showHiddenEvents = false;
+    let hiddenEventCount = 0;
+    let contextMenuEventId = null;
+
+    // Load noise rules from localStorage
+    function loadNoiseRules() {
+        try {
+            const saved = localStorage.getItem('ueba_noise_rules');
+            if (saved) {
+                noiseRules = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error('Failed to load noise rules:', e);
+            noiseRules = [];
+        }
+        renderNoiseRulesList();
+    }
+
+    // Save noise rules to localStorage
+    function saveNoiseRulesToStorage() {
+        try {
+            localStorage.setItem('ueba_noise_rules', JSON.stringify(noiseRules));
+        } catch (e) {
+            console.error('Failed to save noise rules:', e);
+        }
+    }
+
+    // Check if an event matches any noise rule
+    function isEventHiddenByNoiseRules(event) {
+        for (const rule of noiseRules) {
+            if (!rule.enabled) continue;
+            
+            const fieldValue = String(event[rule.field] || '');
+            const pattern = rule.pattern;
+            
+            let matches = false;
+            switch (rule.matchType) {
+                case 'exact':
+                    matches = fieldValue === pattern;
+                    break;
+                case 'contains':
+                    matches = fieldValue.toLowerCase().includes(pattern.toLowerCase());
+                    break;
+                case 'startswith':
+                    matches = fieldValue.toLowerCase().startsWith(pattern.toLowerCase());
+                    break;
+                case 'endswith':
+                    matches = fieldValue.toLowerCase().endsWith(pattern.toLowerCase());
+                    break;
+            }
+            
+            if (matches) return true;
+        }
+        return false;
+    }
+
+    // Render noise rules list in the drawer
+    function renderNoiseRulesList() {
+        const container = document.getElementById('noiseRulesList');
+        if (!container) return;
+        
+        if (noiseRules.length === 0) {
+            container.innerHTML = `
+                <div class="noise-empty-state">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                    <p>No noise rules defined</p>
+                    <p style="font-size: 11px;">Right-click an event row or use the button above to add rules.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const fieldLabels = {
+            message: 'Message',
+            process_name: 'Process Name',
+            provider: 'Provider',
+            event_id: 'Event ID',
+            host: 'Host',
+            user: 'User',
+            command_line: 'Command Line',
+            target_filename: 'File Path'
+        };
+        
+        const matchTypeLabels = {
+            contains: 'contains',
+            exact: 'equals',
+            startswith: 'starts with',
+            endswith: 'ends with'
+        };
+        
+        container.innerHTML = noiseRules.map((rule, index) => `
+            <div class="noise-rule-item">
+                <div class="noise-rule-header">
+                    <span class="noise-rule-name">${dashboardUtils.escapeHtml(rule.name)}</span>
+                    <div class="noise-rule-actions">
+                        <button class="noise-rule-btn ${rule.enabled ? 'enabled' : ''}" onclick="toggleNoiseRule(${index})" title="${rule.enabled ? 'Disable' : 'Enable'}">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                ${rule.enabled 
+                                    ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+                                    : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+                                }
+                            </svg>
+                        </button>
+                        <button class="noise-rule-btn" onclick="deleteNoiseRule(${index})" title="Delete">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="noise-rule-details">
+                    ${fieldLabels[rule.field] || rule.field} ${matchTypeLabels[rule.matchType]} <span class="noise-rule-pattern">${dashboardUtils.escapeHtml(rule.pattern)}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Toggle noise rule enabled/disabled
+    function toggleNoiseRule(index) {
+        if (noiseRules[index]) {
+            noiseRules[index].enabled = !noiseRules[index].enabled;
+            saveNoiseRulesToStorage();
+            renderNoiseRulesList();
+            applyFiltersAndPagination();
+        }
+    }
+
+    // Delete noise rule
+    function deleteNoiseRule(index) {
+        noiseRules.splice(index, 1);
+        saveNoiseRulesToStorage();
+        renderNoiseRulesList();
+        applyFiltersAndPagination();
+    }
+
+    // Show add noise rule modal
+    function showAddNoiseRuleModal(prefill = {}) {
+        document.getElementById('noiseRuleName').value = prefill.name || '';
+        document.getElementById('noiseRuleField').value = prefill.field || 'message';
+        document.getElementById('noiseRuleMatchType').value = prefill.matchType || 'contains';
+        document.getElementById('noiseRulePattern').value = prefill.pattern || '';
+        document.getElementById('addNoiseRuleModal').classList.add('active');
+    }
+
+    // Close add noise rule modal
+    function closeAddNoiseRuleModal() {
+        document.getElementById('addNoiseRuleModal').classList.remove('active');
+    }
+
+    // Save new noise rule
+    function saveNoiseRule() {
+        const name = document.getElementById('noiseRuleName').value.trim();
+        const field = document.getElementById('noiseRuleField').value;
+        const matchType = document.getElementById('noiseRuleMatchType').value;
+        const pattern = document.getElementById('noiseRulePattern').value.trim();
+        
+        if (!name || !pattern) {
+            alert('Please provide both a rule name and a pattern.');
+            return;
+        }
+        
+        noiseRules.push({
+            name,
+            field,
+            matchType,
+            pattern,
+            enabled: true,
+            createdAt: new Date().toISOString()
+        });
+        
+        saveNoiseRulesToStorage();
+        renderNoiseRulesList();
+        closeAddNoiseRuleModal();
+        applyFiltersAndPagination();
+    }
+
+    // Toggle show hidden events
+    function toggleShowHidden() {
+        showHiddenEvents = !showHiddenEvents;
+        const toggle = document.getElementById('showHiddenToggle');
+        if (toggle) {
+            toggle.textContent = showHiddenEvents ? 'Hide again' : 'Show hidden';
+        }
+        applyFiltersAndPagination();
+    }
+
+    // Update hidden indicator
+    function updateHiddenIndicator(count) {
+        hiddenEventCount = count;
+        const indicator = document.getElementById('hiddenIndicator');
+        const countText = document.getElementById('hiddenCountText');
+        
+        if (indicator && countText) {
+            if (count > 0) {
+                indicator.style.display = 'flex';
+                indicator.classList.add('has-hidden');
+                countText.textContent = `${count} event${count !== 1 ? 's' : ''} hidden by noise rules`;
+            } else {
+                indicator.style.display = 'none';
+                indicator.classList.remove('has-hidden');
+            }
+        }
+    }
+
+    // ============================================
+    // Filter Drawer Functions
+    // ============================================
+    function toggleFilterDrawer() {
+        const drawer = document.getElementById('filterDrawer');
+        const overlay = document.getElementById('filterDrawerOverlay');
+        drawer.classList.toggle('active');
+        overlay.classList.toggle('active');
+    }
+
+    function closeFilterDrawer() {
+        document.getElementById('filterDrawer').classList.remove('active');
+        document.getElementById('filterDrawerOverlay').classList.remove('active');
+    }
+
+    function switchDrawerTab(tab) {
+        document.querySelectorAll('.filter-drawer-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.filter-drawer-tab[data-tab="${tab}"]`).classList.add('active');
+        
+        document.getElementById('filtersTabContent').style.display = tab === 'filters' ? 'block' : 'none';
+        document.getElementById('noiseTabContent').style.display = tab === 'noise' ? 'block' : 'none';
+    }
+
+    function applyAdvancedFilters() {
+        advancedFilters = {
+            source: document.getElementById('filterSource').value,
+            category: document.getElementById('filterCategory').value,
+            host: document.getElementById('filterHost').value.trim(),
+            user: document.getElementById('filterUser').value.trim(),
+            eventId: document.getElementById('filterEventId').value.trim(),
+            provider: document.getElementById('filterProvider').value.trim(),
+            processName: document.getElementById('filterProcessName').value.trim(),
+            riskLevel: document.getElementById('filterRiskLevel').value,
+            riskMin: document.getElementById('filterRiskMin').value ? parseInt(document.getElementById('filterRiskMin').value) : null,
+            riskMax: document.getElementById('filterRiskMax').value ? parseInt(document.getElementById('filterRiskMax').value) : null,
+            message: document.getElementById('filterMessage').value.trim()
+        };
+        
+        currentPage = 1;
+        applyFiltersAndPagination();
+        updateActiveFiltersUI();
+        closeFilterDrawer();
+    }
+
+    function clearAllAdvancedFilters() {
+        document.getElementById('filterSource').value = '';
+        document.getElementById('filterCategory').value = '';
+        document.getElementById('filterHost').value = '';
+        document.getElementById('filterUser').value = '';
+        document.getElementById('filterEventId').value = '';
+        document.getElementById('filterProvider').value = '';
+        document.getElementById('filterProcessName').value = '';
+        document.getElementById('filterRiskLevel').value = '';
+        document.getElementById('filterRiskMin').value = '';
+        document.getElementById('filterRiskMax').value = '';
+        document.getElementById('filterMessage').value = '';
+        
+        advancedFilters = {
+            source: '', category: '', host: '', user: '', eventId: '',
+            provider: '', processName: '', riskLevel: '', riskMin: null, riskMax: null, message: ''
+        };
+        
+        currentPage = 1;
+        applyFiltersAndPagination();
+        updateActiveFiltersUI();
+    }
+
+    function updateActiveFiltersUI() {
+        const container = document.getElementById('activeFiltersBar');
+        const filterBtn = document.getElementById('filterToggleBtn');
+        const countBadge = document.getElementById('filterCountBadge');
+        
+        const chips = [];
+        const filterLabels = {
+            source: 'Source',
+            category: 'Category',
+            host: 'Host',
+            user: 'User',
+            eventId: 'Event ID',
+            provider: 'Provider',
+            processName: 'Process',
+            riskLevel: 'Risk Level',
+            message: 'Message'
+        };
+        
+        for (const [key, label] of Object.entries(filterLabels)) {
+            if (advancedFilters[key]) {
+                chips.push({ key, label, value: advancedFilters[key] });
+            }
+        }
+        
+        if (advancedFilters.riskMin !== null || advancedFilters.riskMax !== null) {
+            const min = advancedFilters.riskMin ?? 0;
+            const max = advancedFilters.riskMax ?? 100;
+            chips.push({ key: 'riskRange', label: 'Risk Score', value: `${min}-${max}` });
+        }
+        
+        if (chips.length > 0) {
+            container.innerHTML = chips.map(chip => `
+                <div class="active-filter-chip">
+                    <span class="chip-label">${chip.label}:</span>
+                    <span>${dashboardUtils.escapeHtml(chip.value)}</span>
+                    <button class="chip-remove" onclick="removeFilter('${chip.key}')">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+            
+            filterBtn.classList.add('has-filters');
+            countBadge.textContent = chips.length;
+            countBadge.style.display = 'inline-block';
+        } else {
+            container.innerHTML = '';
+            filterBtn.classList.remove('has-filters');
+            countBadge.style.display = 'none';
+        }
+    }
+
+    function removeFilter(key) {
+        if (key === 'riskRange') {
+            advancedFilters.riskMin = null;
+            advancedFilters.riskMax = null;
+            document.getElementById('filterRiskMin').value = '';
+            document.getElementById('filterRiskMax').value = '';
+        } else {
+            advancedFilters[key] = '';
+            const inputMap = {
+                source: 'filterSource',
+                category: 'filterCategory',
+                host: 'filterHost',
+                user: 'filterUser',
+                eventId: 'filterEventId',
+                provider: 'filterProvider',
+                processName: 'filterProcessName',
+                riskLevel: 'filterRiskLevel',
+                message: 'filterMessage'
+            };
+            const el = document.getElementById(inputMap[key]);
+            if (el) el.value = '';
+        }
+        
+        currentPage = 1;
+        applyFiltersAndPagination();
+        updateActiveFiltersUI();
+    }
+
+    // ============================================
+    // Context Menu Functions
+    // ============================================
+    function showContextMenu(e, eventId) {
+        e.preventDefault();
+        contextMenuEventId = eventId;
+        
+        const menu = document.getElementById('contextMenu');
+        menu.style.left = `${e.pageX}px`;
+        menu.style.top = `${e.pageY}px`;
+        menu.classList.add('active');
+        
+        // Close on click outside
+        setTimeout(() => {
+            document.addEventListener('click', closeContextMenu, { once: true });
+        }, 10);
+    }
+
+    function closeContextMenu() {
+        document.getElementById('contextMenu').classList.remove('active');
+    }
+
+    function quickFilterFromContext(field) {
+        closeContextMenu();
+        const event = allEvents.find(e => e.id === contextMenuEventId);
+        if (!event) return;
+        
+        const fieldMap = {
+            host: { filter: 'host', input: 'filterHost', value: event.host },
+            user: { filter: 'user', input: 'filterUser', value: event.user },
+            event_id: { filter: 'eventId', input: 'filterEventId', value: String(event.event_id) },
+            provider: { filter: 'provider', input: 'filterProvider', value: event.provider }
+        };
+        
+        const mapping = fieldMap[field];
+        if (mapping && mapping.value) {
+            advancedFilters[mapping.filter] = mapping.value;
+            document.getElementById(mapping.input).value = mapping.value;
+            currentPage = 1;
+            applyFiltersAndPagination();
+            updateActiveFiltersUI();
+        }
+    }
+
+    function addNoiseRuleFromContext() {
+        closeContextMenu();
+        const event = allEvents.find(e => e.id === contextMenuEventId);
+        if (!event) return;
+        
+        // Pre-fill with event data
+        showAddNoiseRuleModal({
+            name: `Hide ${event.provider || 'events'} ${event.event_id || ''}`.trim(),
+            field: 'provider',
+            matchType: 'exact',
+            pattern: event.provider || ''
+        });
+        
+        // Switch to noise tab
+        switchDrawerTab('noise');
+        toggleFilterDrawer();
+    }
+
+    function viewEventFromContext() {
+        closeContextMenu();
+        if (contextMenuEventId) {
+            showEventDetails(contextMenuEventId);
+        }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        // Load noise rules from localStorage
+        loadNoiseRules();
+        // Sync timeRange with dropdown value (from session storage or default)
+        const timeRangeSelect = document.getElementById('timeRangeSelect');
+        if (timeRangeSelect) {
+            const savedRange = sessionStorage.getItem('selectedTimeRange');
+            if (savedRange) {
+                timeRangeSelect.value = savedRange;
+                timeRange = savedRange;
+            } else {
+                timeRange = timeRangeSelect.value || '24h';
+            }
+        }
+        console.log('Initialized with timeRange:', timeRange);
+        
+        // Show loading state
+        showLoadingState();
+
+        // Load initial data with retry
+        loadAllEventsWithRetry(3);
+        loadStats();
+        loadCharts();
+        setupFilters();
+        setupSearch();
+
+        // Periodic refresh - always poll for new events as backup
+        setInterval(loadStats, 5000);  // Refresh stats every 5 seconds
+        setInterval(updateChartsSmooth, 60000);  // Smooth chart updates every 60 seconds (no destroy/recreate)
+
+        // Poll for new events every 2 seconds (backup to WebSocket)
+        setInterval(pollNewEvents, REFRESH_INTERVAL);
+
+        // Reload events every 30 seconds as a fallback
+        setInterval(() => {
+            if (allEvents.length === 0) {
+                console.log('No events loaded, retrying...');
+                loadAllEventsWithRetry(2);
+            }
+        }, 30000);
+
+        console.log('Events viewer initialized with real-time updates');
+    });
+
+    function showLoadingState() {
+        const tbody = document.getElementById('eventsBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                    <tr><td colspan="7">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12 6 12 12 16 14"/>
+                                </svg>
+                            </div>
+                            <div class="empty-state-title">Loading events...</div>
+                        </div>
+                    </td></tr>
+                `;
+        }
+    }
+
+    async function loadAllEventsWithRetry(retries = 3) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                await loadAllEvents();
+                if (allEvents.length >= 0) {
+                    return; // Success
+                }
+            } catch (error) {
+                console.error(`Load attempt ${i + 1} failed:`, error);
+                if (i < retries - 1) {
+                    await new Promise(r => setTimeout(r, 1000 * (i + 1))); // Backoff
+                }
+            }
+        }
+    }
+
+    // Handle new event from WebSocket or polling
+    window.handleNewEvent = function (event) {
+        if (allEvents.some(e => e.id === event.id)) return;
+
+        console.log('New event received:', event.id);
+
+        allEvents.unshift(event);
+        if (event.id > latestEventId) latestEventId = event.id;
+
+        // Update table immediately (real-time)
+        applyFiltersAndPagination();
+        
+        // Update stats frequently (lightweight)
+        loadStats();
+        
+        // Throttle chart updates to prevent animation reset spam
+        // Charts update max once per second for readability
+        const now = Date.now();
+        if (now - lastChartUpdate >= CHART_UPDATE_INTERVAL) {
+            lastChartUpdate = now;
+            updateChartsSmooth();
+        } else if (!chartUpdatePending) {
+            chartUpdatePending = true;
+            setTimeout(() => {
+                chartUpdatePending = false;
+                lastChartUpdate = Date.now();
+                updateChartsSmooth();
+            }, CHART_UPDATE_INTERVAL - (now - lastChartUpdate));
+        }
+
+        // Flash the status indicator to show real-time activity
+        const statusDot = document.getElementById('statusDot');
+        if (statusDot) {
+            statusDot.style.animation = 'pulse 0.5s ease';
+            setTimeout(() => { statusDot.style.animation = ''; }, 500);
+        }
+    };
+
+    // Handle time range change
+    window.handleTimeRangeChange = function (range) {
+        timeRange = range;
+        currentPage = 1;  // Reset to first page
+        
+        // Save to session storage for persistence
+        sessionStorage.setItem('selectedTimeRange', range);
+        
+        // Reload both charts AND events table with new time range
+        loadCharts();
+        loadAllEventsWithRetry(2);
+        
+        console.log(`Time range changed to: ${range}, hours: ${getHoursFromTimeRange()}`);
+    };
+
+    // Get hours from timeRange
+    function getHoursFromTimeRange() {
+        return timeRange === '1h' ? 1 : timeRange === '24h' ? 24 : timeRange === '7d' ? 168 : 720;
+    }
+
+    // Load data
+    async function loadAllEvents() {
+        try {
+            // Build API URL with time range filter
+            const hours = getHoursFromTimeRange();
+            let url = `/api/events?limit=1000&hours=${hours}`;
+            
+            // Add source filter if not 'all'
+            if (currentSourceFilter !== 'all') {
+                url += `&source=${encodeURIComponent(currentSourceFilter)}`;
+            }
+            
+            console.log(`Loading events: ${url}`);
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Ensure we have an array
+            allEvents = Array.isArray(data.events) ? data.events : [];
+
+            if (allEvents.length > 0) {
+                latestEventId = allEvents[0].id;
+            }
+
+            console.log(`Loaded ${allEvents.length} events for time range: ${timeRange}`);
+            applyFiltersAndPagination();
+
+        } catch (error) {
+            console.error('Failed to load events:', error);
+
+            // Only show error state if we have no cached events
+            if (allEvents.length === 0) {
+                const tbody = document.getElementById('eventsBody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                    <tr><td colspan="9">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                            </div>
+                            <div class="empty-state-title">Failed to load events</div>
+                            <p style="color: var(--text-muted); font-size: 12px; margin-top: 8px;">
+                                Retrying in a few seconds...
+                            </p>
+                        </div>
+                    </td></tr>
+                `;
+                }
+            }
+
+            throw error; // Re-throw for retry logic
+        }
+    }
+
+    async function pollNewEvents() {
+        try {
+            // If no events loaded yet, do a full reload instead
+            if (allEvents.length === 0) {
+                console.log('No events in cache, doing full reload');
+                await loadAllEvents();
+                return;
+            }
+
+            // Build URL with time range and source filter
+            const hours = getHoursFromTimeRange();
+            let url = `/api/events?since_id=${latestEventId}&limit=50&hours=${hours}`;
+            
+            if (currentSourceFilter !== 'all') {
+                url += `&source=${encodeURIComponent(currentSourceFilter)}`;
+            }
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.events && data.events.length > 0) {
+                console.log(`Polling found ${data.events.length} new events`);
+                data.events.reverse().forEach(event => window.handleNewEvent(event));
+            }
+        } catch (error) {
+            console.error('Failed to poll events:', error);
+        }
+    }
+
+    // Force full refresh
+    function forceRefresh() {
+        showLoadingState();
+        loadAllEventsWithRetry(2);
+        loadStats();
+        loadCharts();
+    }
+
+    async function loadStats() {
+        try {
+            const response = await fetch('/api/stats');
+            const stats = await response.json();
+
+            document.getElementById('metricTotal').textContent = dashboardUtils.formatNumber(stats.total_events);
+            document.getElementById('metricHour').textContent = dashboardUtils.formatNumber(stats.events_last_hour);
+            document.getElementById('metricHosts').textContent = dashboardUtils.formatNumber(stats.unique_hosts);
+            document.getElementById('metricUsers').textContent = dashboardUtils.formatNumber(stats.unique_users);
+
+            const bySource = stats.by_source || {};
+            document.getElementById('metricSysmon').textContent = dashboardUtils.formatNumber(bySource['sysmon'] || 0);
+            document.getElementById('metricWinEvent').textContent = dashboardUtils.formatNumber(bySource['windows_event'] || 0);
+        } catch (error) {
+            console.error('Failed to load stats:', error);
+        }
+    }
+    
+    /**
+     * Update charts smoothly without destroy/recreate.
+     * Uses Chart.js data update mechanism for smooth delta-based transitions.
+     * Animation goes from CURRENT values to NEW values (not 0 to new).
+     */
+    async function updateChartsSmooth() {
+        try {
+            const hours = getHoursFromTimeRange();
+            const response = await fetch(`/api/events/summary?hours=${hours}`);
+            const summary = await response.json();
+            
+            // Update timeline chart data in-place with smooth animation
+            if (eventsTimelineChart && summary.timeline && Object.keys(summary.timeline).length > 0) {
+                const labels = Object.keys(summary.timeline).sort();
+                const values = labels.map(key => summary.timeline[key] || 0);
+                
+                // Detect if data spans multiple days
+                let spansMultipleDays = false;
+                if (labels.length >= 2) {
+                    const firstDate = new Date(labels[0]);
+                    const lastDate = new Date(labels[labels.length - 1]);
+                    const daysDiff = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+                    spansMultipleDays = daysDiff > 1;
+                }
+                
+                const formattedLabels = labels.map(label => {
+                    const date = new Date(label);
+                    if (spansMultipleDays) {
+                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + 
+                               ' ' + date.toLocaleTimeString('en-US', { hour: '2-digit', hour12: false }) + ':00';
+                    } else {
+                        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    }
+                });
+                
+                // Update data in-place - Chart.js animates from current to new values
+                eventsTimelineChart.data.labels = formattedLabels;
+                eventsTimelineChart.data.datasets[0].data = values;
+                eventsTimelineChart.update(); // Default update = smooth delta animation
+            }
+            
+            // Update donut chart data in-place with smooth animation
+            if (eventsSourceChart && summary.by_source && Object.keys(summary.by_source).length > 0) {
+                const chartData = {};
+                Object.entries(summary.by_source).forEach(([key, value]) => {
+                    chartData[SOURCE_LABELS[key] || key] = value;
+                });
+                
+                const newLabels = Object.keys(chartData);
+                const newValues = Object.values(chartData);
+                
+                // Update data in-place - animates slices from current to new proportions
+                eventsSourceChart.data.labels = newLabels;
+                eventsSourceChart.data.datasets[0].data = newValues;
+                eventsSourceChart.update(); // Default update = smooth delta animation
+            }
+            
+        } catch (error) {
+            console.error('Failed to update charts smoothly:', error);
+        }
+    }
+
+    async function loadCharts() {
+        try {
+            const hours = timeRange === '1h' ? 1 : timeRange === '24h' ? 24 : timeRange === '7d' ? 168 : 720;
+            console.log('Loading charts for', hours, 'hours');
+
+            const response = await fetch(`/api/events/summary?hours=${hours}`);
+            const summary = await response.json();
+            console.log('Chart data received:', summary);
+            
+            // Update chart title based on bucket size
+            const bucketSize = summary.bucket_size || 60;
+            let bucketLabel = '';
+            if (bucketSize === 1) {
+                bucketLabel = '(1-minute intervals)';
+            } else if (bucketSize === 15) {
+                bucketLabel = '(15-minute intervals)';
+            } else if (bucketSize === 60) {
+                bucketLabel = '(hourly intervals)';
+            } else if (bucketSize === 240) {
+                bucketLabel = '(4-hour intervals)';
+            }
+            
+            // Update chart title element if exists
+            const chartTitleEl = document.querySelector('.chart-card .chart-title');
+            if (chartTitleEl) {
+                const rangeLabel = timeRange === '1h' ? 'Last Hour' : timeRange === '24h' ? 'Last 24 Hours' : timeRange === '7d' ? 'Last 7 Days' : 'Last 30 Days';
+                chartTitleEl.textContent = `Events Over Time - ${rangeLabel} ${bucketLabel}`;
+            }
+
+            // Update timeline chart
+            if (eventsTimelineChart) {
+                eventsTimelineChart.destroy();
+            }
+
+            // Check if we have timeline data
+            if (summary.timeline && Object.keys(summary.timeline).length > 0) {
+                eventsTimelineChart = dashboardUtils.createTimelineChart(
+                    'eventsTimelineChart',
+                    summary.timeline,
+                    'Events',
+                    '#00e5d4'
+                );
+            } else {
+                console.log('No timeline data available');
+                // Create empty chart with message
+                const ctx = document.getElementById('eventsTimelineChart');
+                if (ctx) {
+                    eventsTimelineChart = new Chart(ctx, {
+                        type: 'line',
+                        data: { labels: [], datasets: [{ data: [], label: 'Events' }] },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                title: {
+                                    display: true,
+                                    text: 'No data in selected time range',
+                                    color: '#9aa0a6'
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Update source chart
+            const sourceColors = {
+                'sysmon': '#00d4ff',
+                'windows_event': '#ffb020',
+                'unknown': '#9aa0a6'
+            };
+
+            if (eventsSourceChart) {
+                eventsSourceChart.destroy();
+            }
+
+            // Check if we have source data
+            if (summary.by_source && Object.keys(summary.by_source).length > 0) {
+                const chartData = {};
+                const chartColors = [];
+
+                Object.entries(summary.by_source).forEach(([key, value]) => {
+                    chartData[SOURCE_LABELS[key] || key] = value;
+                    chartColors.push(sourceColors[key] || '#9aa0a6');
+                });
+
+                console.log('Source chart data:', chartData);
+
+                eventsSourceChart = dashboardUtils.createDonutChart(
+                    'eventsSourceChart',
+                    chartData,
+                    chartColors
+                );
+            } else {
+                console.log('No source data available');
+                // Create empty chart
+                const ctx = document.getElementById('eventsSourceChart');
+                if (ctx) {
+                    eventsSourceChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: { labels: ['No data'], datasets: [{ data: [1], backgroundColor: ['#333'] }] },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } }
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load charts:', error);
+        }
+    }
+
+    // Filtering and pagination
+    function setupFilters() {
+        document.querySelectorAll('.filter-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                const newFilter = chip.dataset.source;
+                
+                // Only reload from server if filter actually changed
+                if (newFilter !== currentSourceFilter) {
+                    currentSourceFilter = newFilter;
+                    currentPage = 1;
+                    // Reload events from server with new filter
+                    loadAllEventsWithRetry(2);
+                } else {
+                    currentPage = 1;
+                    applyFiltersAndPagination();
+                }
+            });
+        });
+    }
+
+    function setupSearch() {
+        let debounceTimer;
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                searchQuery = e.target.value;
+                currentPage = 1;
+                applyFiltersAndPagination();
+            }, 300);
+        });
+    }
+
+    // Global filter handlers for filter panel
+    window.applySourceTypeFilter = function (sourceType) {
+        currentPage = 1;
+        applyFiltersAndPagination();
+    };
+
+    window.applyAllFilters = function (filters) {
+        currentPage = 1;
+        applyFiltersAndPagination();
+    };
+
+    window.clearAllFilters = function () {
+        currentSourceFilter = 'all';
+        searchQuery = '';
+        document.getElementById('searchInput').value = '';
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        document.querySelector('.filter-chip[data-source="all"]').classList.add('active');
+        currentPage = 1;
+        applyFiltersAndPagination();
+    };
+
+    function applyFiltersAndPagination() {
+        // Track hidden events count for noise rules
+        let hiddenByNoiseCount = 0;
+
+        let filtered = allEvents.filter(event => {
+            // Event source filter from chips (sysmon/windows_event)
+            const eventSource = event.source || 'sysmon';
+            if (currentSourceFilter !== 'all' && eventSource !== currentSourceFilter) {
+                return false;
+            }
+
+            // Advanced filter: Source
+            if (advancedFilters.source && eventSource !== advancedFilters.source) {
+                return false;
+            }
+
+            // Advanced filter: Category
+            if (advancedFilters.category && (event.category || 'other') !== advancedFilters.category) {
+                return false;
+            }
+
+            // Advanced filter: Host
+            if (advancedFilters.host) {
+                if (!(event.host || '').toLowerCase().includes(advancedFilters.host.toLowerCase())) {
+                    return false;
+                }
+            }
+
+            // Advanced filter: User
+            if (advancedFilters.user) {
+                if (!(event.user || '').toLowerCase().includes(advancedFilters.user.toLowerCase())) {
+                    return false;
+                }
+            }
+
+            // Advanced filter: Event ID
+            if (advancedFilters.eventId) {
+                const eventIds = advancedFilters.eventId.split(',').map(id => id.trim());
+                if (!eventIds.includes(String(event.event_id))) {
+                    return false;
+                }
+            }
+
+            // Advanced filter: Provider
+            if (advancedFilters.provider) {
+                if (!(event.provider || '').toLowerCase().includes(advancedFilters.provider.toLowerCase())) {
+                    return false;
+                }
+            }
+
+            // Advanced filter: Process Name
+            if (advancedFilters.processName) {
+                if (!(event.process_name || '').toLowerCase().includes(advancedFilters.processName.toLowerCase())) {
+                    return false;
+                }
+            }
+
+            // Advanced filter: Risk Level
+            if (advancedFilters.riskLevel) {
+                if ((event.risk_level || 'info') !== advancedFilters.riskLevel) {
+                    return false;
+                }
+            }
+
+            // Advanced filter: Risk Score Range
+            if (advancedFilters.riskMin !== null || advancedFilters.riskMax !== null) {
+                const score = event.risk_score ?? 0;
+                if (advancedFilters.riskMin !== null && score < advancedFilters.riskMin) {
+                    return false;
+                }
+                if (advancedFilters.riskMax !== null && score > advancedFilters.riskMax) {
+                    return false;
+                }
+            }
+
+            // Advanced filter: Message contains
+            if (advancedFilters.message) {
+                if (!(event.message || '').toLowerCase().includes(advancedFilters.message.toLowerCase())) {
+                    return false;
+                }
+            }
+
+            // Search query (search bar)
+            if (searchQuery) {
+                const searchLower = searchQuery.toLowerCase();
+                const searchable = [
+                    event.host, event.user, event.message,
+                    event.process_name, event.command_line,
+                    event.provider, String(event.event_id)
+                ].filter(Boolean).join(' ').toLowerCase();
+                if (!searchable.includes(searchLower)) {
+                    return false;
+                }
+            }
+
+            // GUI-only Noise Rules filtering (unless showing hidden)
+            if (!showHiddenEvents && isEventHiddenByNoiseRules(event)) {
+                hiddenByNoiseCount++;
+                return false;
+            }
+
+            return true;
+        });
+
+        // Update hidden indicator
+        updateHiddenIndicator(hiddenByNoiseCount);
+
+        const totalFiltered = filtered.length;
+        const totalPages = Math.ceil(totalFiltered / EVENTS_PER_PAGE) || 1;
+
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        const startIndex = (currentPage - 1) * EVENTS_PER_PAGE;
+        const endIndex = Math.min(startIndex + EVENTS_PER_PAGE, totalFiltered);
+
+        events = filtered.slice(startIndex, endIndex);
+
+        document.getElementById('showingFrom').textContent = totalFiltered > 0 ? startIndex + 1 : 0;
+        document.getElementById('showingTo').textContent = endIndex;
+        document.getElementById('totalEvents').textContent = totalFiltered;
+        document.getElementById('currentPage').textContent = currentPage;
+        document.getElementById('totalPages').textContent = totalPages;
+
+        document.getElementById('prevPageBtn').disabled = currentPage <= 1;
+        document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
+
+        renderEvents();
+    }
+
+    function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            applyFiltersAndPagination();
+        }
+    }
+
+    function nextPage() {
+        const totalPages = Math.ceil(allEvents.length / EVENTS_PER_PAGE);
+        if (currentPage < totalPages) {
+            currentPage++;
+            applyFiltersAndPagination();
+        }
+    }
+
+    // Rendering
+    function renderEvents() {
+        const tbody = document.getElementById('eventsBody');
+
+        if (events.length === 0) {
+            tbody.innerHTML = `
+                    <tr><td colspan="9">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                                </svg>
+                            </div>
+                            <div class="empty-state-title">No events found</div>
+                            <p style="color: var(--text-muted); font-size: 12px; margin-top: 8px;">
+                                Try adjusting your filters or time range.
+                            </p>
+                        </div>
+                    </td></tr>
+                `;
+            return;
+        }
+
+        tbody.innerHTML = events.map(event => {
+            const source = event.source || 'sysmon';
+            const sourceLabel = SOURCE_LABELS[source] || 'Unknown';
+
+            // Category display
+            const category = event.category || 'other';
+            const categoryLabels = {
+                'auth': 'Auth',
+                'process': 'Process',
+                'network': 'Network',
+                'file': 'File',
+                'registry': 'Registry',
+                'other': 'Other'
+            };
+            const categoryLabel = categoryLabels[category] || category;
+
+            // Risk score and level
+            const riskScore = event.risk_score !== null && event.risk_score !== undefined
+                ? Math.round(event.risk_score)
+                : '-';
+            const riskLevel = event.risk_level || 'info';
+
+            // Risk level badge class
+            const riskLevelClasses = {
+                'critical': 'badge-risk-critical',
+                'high': 'badge-risk-high',
+                'medium': 'badge-risk-medium',
+                'low': 'badge-risk-low',
+                'info': 'badge-risk-info'
+            };
+            const riskLevelClass = riskLevelClasses[riskLevel] || 'badge-risk-info';
+
+            // Check if hidden (for show hidden mode styling)
+            const isHidden = showHiddenEvents && isEventHiddenByNoiseRules(event);
+            const rowClass = isHidden ? 'hidden-preview' : '';
+
+            return `
+                    <tr class="${rowClass}" onclick="showEventDetails(${event.id})" oncontextmenu="showContextMenu(event, ${event.id})">
+                <td class="mono text-muted">${dashboardUtils.formatTimestamp(event.timestamp)}</td>
+                <td><span class="badge badge-source">${sourceLabel}</span></td>
+                <td class="mono filterable" onclick="event.stopPropagation(); quickFilterByValue('host', '${dashboardUtils.escapeHtml(event.host)}')">${dashboardUtils.escapeHtml(event.host)}</td>
+                <td class="mono filterable" onclick="event.stopPropagation(); quickFilterByValue('user', '${dashboardUtils.escapeHtml(event.user)}')">${dashboardUtils.escapeHtml(event.user)}</td>
+                <td class="mono filterable" onclick="event.stopPropagation(); quickFilterByValue('eventId', '${event.event_id}')">${event.event_id}</td>
+                <td><span class="badge badge-category">${categoryLabel}</span></td>
+                <td class="mono">${riskScore}</td>
+                <td><span class="badge ${riskLevelClass}">${riskLevel.toUpperCase()}</span></td>
+                <td class="text-muted">${dashboardUtils.escapeHtml(event.message || '')}</td>
+                    </tr>
+                `;
+        }).join('');
+    }
+
+    // Quick filter by clicking on a value
+    function quickFilterByValue(field, value) {
+        if (!value) return;
+        
+        const inputMap = {
+            host: 'filterHost',
+            user: 'filterUser',
+            eventId: 'filterEventId',
+            provider: 'filterProvider'
+        };
+        
+        advancedFilters[field] = value;
+        const inputEl = document.getElementById(inputMap[field]);
+        if (inputEl) inputEl.value = value;
+        
+        currentPage = 1;
+        applyFiltersAndPagination();
+        updateActiveFiltersUI();
+    }
+
+    function showEventDetails(eventId) {
+        const event = allEvents.find(e => e.id === eventId);
+        if (!event) return;
+
+        // Show detailed modal
+        const source = event.source || 'sysmon';
+        const sourceLabel = SOURCE_LABELS[source] || 'Unknown';
+        const level = event.level || 'Information';
+
+        // Build detail rows for available fields
+        let detailsHTML = `
+        <div class="event-detail-grid">
+            <div class="detail-section">
+                <h4>Basic Information</h4>
+                <div class="detail-row">
+                    <span class="detail-label">Event ID</span>
+                    <span class="detail-value">${event.id}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Timestamp</span>
+                    <span class="detail-value mono">${dashboardUtils.formatTimestamp(event.timestamp)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Source</span>
+                    <span class="detail-value"><span class="badge badge-source">${sourceLabel}</span></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Level</span>
+                    <span class="detail-value">${level}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Provider</span>
+                    <span class="detail-value">${event.provider || 'N/A'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Windows Event ID</span>
+                    <span class="detail-value mono">${event.event_id}</span>
+                </div>
+            </div>
+            
+            <div class="detail-section">
+                <h4>Host & User</h4>
+                <div class="detail-row">
+                    <span class="detail-label">Host</span>
+                    <span class="detail-value mono">${dashboardUtils.escapeHtml(event.host)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">User</span>
+                    <span class="detail-value mono">${dashboardUtils.escapeHtml(event.user)}</span>
+                </div>
+            </div>
+    `;
+
+        // Process information (if available)
+        if (event.process_name || event.process_id || event.image_path || event.command_line) {
+            detailsHTML += `
+            <div class="detail-section full-width">
+                <h4>Process Information</h4>
+                ${event.process_name ? `<div class="detail-row"><span class="detail-label">Process Name</span><span class="detail-value mono">${dashboardUtils.escapeHtml(event.process_name)}</span></div>` : ''}
+                ${event.process_id ? `<div class="detail-row"><span class="detail-label">Process ID</span><span class="detail-value mono">${event.process_id}</span></div>` : ''}
+                ${event.parent_process_name ? `<div class="detail-row"><span class="detail-label">Parent Process</span><span class="detail-value mono">${dashboardUtils.escapeHtml(event.parent_process_name)}</span></div>` : ''}
+                ${event.parent_process_id ? `<div class="detail-row"><span class="detail-label">Parent PID</span><span class="detail-value mono">${event.parent_process_id}</span></div>` : ''}
+                ${event.image_path ? `<div class="detail-row"><span class="detail-label">Image Path</span><span class="detail-value mono" style="word-break: break-all;">${dashboardUtils.escapeHtml(event.image_path)}</span></div>` : ''}
+                ${event.command_line ? `<div class="detail-row"><span class="detail-label">Command Line</span><span class="detail-value mono" style="word-break: break-all;">${dashboardUtils.escapeHtml(event.command_line)}</span></div>` : ''}
+            </div>
+        `;
+        }
+
+        // Network information (if available)
+        if (event.source_ip || event.dest_ip) {
+            detailsHTML += `
+            <div class="detail-section full-width">
+                <h4>Network Information</h4>
+                ${event.source_ip ? `<div class="detail-row"><span class="detail-label">Source IP</span><span class="detail-value mono">${event.source_ip}${event.source_port ? ':' + event.source_port : ''}</span></div>` : ''}
+                ${event.dest_ip ? `<div class="detail-row"><span class="detail-label">Destination IP</span><span class="detail-value mono">${event.dest_ip}${event.dest_port ? ':' + event.dest_port : ''}</span></div>` : ''}
+            </div>
+        `;
+        }
+
+        // File information (if available)
+        if (event.target_filename || event.file_hash) {
+            detailsHTML += `
+            <div class="detail-section full-width">
+                <h4>File Information</h4>
+                ${event.target_filename ? `<div class="detail-row"><span class="detail-label">Target File</span><span class="detail-value mono" style="word-break: break-all;">${dashboardUtils.escapeHtml(event.target_filename)}</span></div>` : ''}
+                ${event.file_hash ? `<div class="detail-row"><span class="detail-label">File Hash</span><span class="detail-value mono">${event.file_hash}</span></div>` : ''}
+            </div>
+        `;
+        }
+
+        // Message
+        detailsHTML += `
+            <div class="detail-section full-width">
+                <h4>Message</h4>
+                <div class="message-box">${dashboardUtils.escapeHtml(event.message || 'No message')}</div>
+            </div>
+        </div>
+    `;
+
+        document.getElementById('eventDetailContent').innerHTML = detailsHTML;
+        document.getElementById('eventDetailModal').classList.add('active');
+    }
+
+    function closeEventDetail() {
+        document.getElementById('eventDetailModal').classList.remove('active');
+    }
+
+    // Close modal on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeEventDetail();
+        }
+    });
+
+    function downloadEvents() {
+        // Show the export modal with options
+        showExportModal();
+    }
+    
+    function showExportModal() {
+        // Update counts in modal
+        document.getElementById('exportPageCount').textContent = events.length;
+        document.getElementById('exportAllCount').textContent = document.getElementById('totalEvents').textContent;
+        
+        // Show current filters - ALWAYS show time range
+        const filterParts = [];
+        
+        // Always show time range (it's a critical filter)
+        const rangeLabels = { '1h': 'Last Hour', '24h': 'Last 24 Hours', '7d': 'Last 7 Days', '30d': 'Last 30 Days' };
+        filterParts.push(`Time: ${rangeLabels[timeRange] || timeRange}`);
+        
+        if (currentSourceFilter !== 'all') {
+            filterParts.push(`Source: ${currentSourceFilter}`);
+        }
+        if (searchQuery) {
+            filterParts.push(`Search: "${searchQuery}"`);
+        }
+        
+        // Show global filters if any
+        const globalFilters = window.globalFilters || {};
+        if (globalFilters.host) {
+            filterParts.push(`Host: ${globalFilters.host}`);
+        }
+        if (globalFilters.user) {
+            filterParts.push(`User: ${globalFilters.user}`);
+        }
+        
+        document.getElementById('exportFiltersInfo').textContent = filterParts.join(', ');
+        
+        document.getElementById('exportModal').classList.add('active');
+    }
+    
+    function closeExportModal() {
+        document.getElementById('exportModal').classList.remove('active');
+    }
+
+    async function exportEvents(scope) {
+        closeExportModal();
+        
+        if (scope === 'page') {
+            // Export current page data (client-side)
+            const dataToExport = events.length > 0 ? events : allEvents.slice(0, EVENTS_PER_PAGE);
+            const csv = convertToCSV(dataToExport);
+            downloadCSVBlob(csv, 'events_page');
+        } else {
+            // Export all results via server endpoint
+            const hours = timeRange === '1h' ? 1 : timeRange === '24h' ? 24 : timeRange === '7d' ? 168 : 720;
+            
+            // Build query params
+            const params = new URLSearchParams({
+                scope: 'all',
+                format: 'csv',
+                hours: hours
+            });
+            
+            if (currentSourceFilter !== 'all') {
+                params.append('source', currentSourceFilter);
+            }
+            if (searchQuery) {
+                params.append('search', searchQuery);
+            }
+            
+            // Show loading indicator
+            const btn = document.querySelector('.btn-download');
+            const originalText = btn.textContent;
+            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Exporting...';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch(`/api/events/export?${params.toString()}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Export failed: ${response.status}`);
+                }
+                
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `events_all_${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                // Show success message
+                const totalExported = response.headers.get('X-Total-Exported');
+                if (totalExported) {
+                    console.log(`Exported ${totalExported} events`);
+                }
+            } catch (error) {
+                console.error('Export failed:', error);
+                alert('Export failed. Please try again.');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+    }
+    
+    function downloadCSVBlob(csv, prefix) {
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${prefix}_${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function convertToCSV(data) {
+        const headers = ['ID', 'Timestamp', 'Source', 'Host', 'User', 'Event ID', 'Level', 'Category', 'Risk Score', 'Risk Level', 'Message'];
+        const rows = data.map(event => [
+            event.id,
+            event.timestamp,
+            event.source || 'sysmon',
+            event.host,
+            event.user,
+            event.event_id,
+            event.level || 'Information',
+            event.category || '',
+            event.risk_score !== null && event.risk_score !== undefined ? event.risk_score : '',
+            event.risk_level || '',
+            `"${(event.message || '').replace(/"/g, '""')}"`
+        ]);
+        return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    }
+
+    function updateCharts() {
+        loadCharts();
+    }
+
+    // Update charts theme
+    window.updateChartsTheme = function (theme) {
+        loadCharts();
+    };
+</script>
+{% endblock %}

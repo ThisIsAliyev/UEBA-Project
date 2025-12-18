@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block title %}UEBA Alerts{% endblock %}
+
+{% block page_title %}UEBA Alerts{% endblock %}
+{% block page_subtitle %}Insider threat detection and anomaly alerts{% endblock %}
+
+{% block extra_head %}
+<style>
+    .alerts-filters {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .filter-group label {
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
+    .filter-group select,
+    .filter-group input {
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-card);
+        color: var(--text-primary);
+        font-size: 14px;
+    }
+
+    .alerts-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--bg-card);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .alerts-table thead {
+        background: var(--bg-card-alt);
+    }
+
+    .alerts-table th {
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .alerts-table td {
+        padding: 16px;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .alerts-table tbody tr:hover {
+        background: var(--bg-card-alt);
+    }
+
+    .severity-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .severity-badge.CRITICAL {
+        background: #ff4444;
+        color: white;
+    }
+
+    .severity-badge.HIGH {
+        background: #ff8800;
+        color: white;
+    }
+
+    .severity-badge.MEDIUM {
+        background: #ffbb00;
+        color: #000;
+    }
+
+    .severity-badge.LOW {
+        background: #88cc00;
+        color: #000;
+    }
+
+    /* MITRE Chips */
+    .mitre-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .mitre-chip {
+        display: inline-block;
+        padding: 2px 6px;
+        background: rgba(0, 212, 255, 0.15);
+        border: 1px solid var(--accent-cyan, #00d4ff);
+        border-radius: 4px;
+        font-size: 11px;
+        font-family: var(--font-mono, monospace);
+        color: var(--accent-cyan, #00d4ff);
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .mitre-chip:hover {
+        background: rgba(0, 212, 255, 0.25);
+    }
+
+    .mitre-chip.more {
+        background: transparent;
+        border-color: var(--text-secondary);
+        color: var(--text-secondary);
+        cursor: default;
+    }
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 20px;
+    }
+
+    .pagination button {
+        padding: 8px 16px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--bg-card);
+        color: var(--text-primary);
+        cursor: pointer;
+    }
+
+    .pagination button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="alerts-filters">
+    <div class="filter-group">
+        <label>Severity</label>
+        <select id="severity-filter">
+            <option value="">All</option>
+            <option value="CRITICAL">CRITICAL</option>
+            <option value="HIGH">HIGH</option>
+            <option value="MEDIUM">MEDIUM</option>
+            <option value="LOW">LOW</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Status</label>
+        <select id="status-filter">
+            <option value="">All</option>
+            <option value="open">Open</option>
+            <option value="closed">Closed</option>
+            <option value="acknowledged">Acknowledged</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>User</label>
+        <input type="text" id="user-filter" placeholder="Filter by user">
+    </div>
+    <div class="filter-group">
+        <label>Host</label>
+        <input type="text" id="host-filter" placeholder="Filter by host">
+    </div>
+    <div class="filter-group" style="align-self: flex-end;">
+        <button onclick="loadAlerts()"
+            style="padding: 8px 16px; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer;">Apply
+            Filters</button>
+    </div>
+</div>
+
+<table class="alerts-table">
+    <thead>
+        <tr>
+            <th>Timestamp</th>
+            <th>Severity</th>
+            <th>User</th>
+            <th>Host</th>
+            <th>MITRE</th>
+            <th>Behavior</th>
+            <th>Score</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="alerts-list">
+        <tr>
+            <td colspan="9" style="text-align: center; padding: 40px;">Loading alerts...</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="pagination">
+    <button id="prev-btn" onclick="prevPage()" disabled>Previous</button>
+    <span id="page-info" style="padding: 8px 16px;">Page 1</span>
+    <button id="next-btn" onclick="nextPage()">Next</button>
+</div>
+
+<script>
+    let currentPage = 0;
+    let pageSize = 20;
+    let totalCount = 0;
+
+    function getFilters() {
+        return {
+            severity: document.getElementById('severity-filter').value || null,
+            status: document.getElementById('status-filter').value || null,
+            user: document.getElementById('user-filter').value || null,
+            host: document.getElementById('host-filter').value || null
+        };
+    }
+
+    function getSeverity(riskScore) {
+        if (riskScore >= 80) return 'CRITICAL';
+        if (riskScore >= 60) return 'HIGH';
+        if (riskScore >= 40) return 'MEDIUM';
+        return 'LOW';
+    }
+
+    function renderMitreChips(techniques) {
+        if (!techniques || techniques.length === 0) {
+            return '<span style="color: var(--text-secondary);">-</span>';
+        }
+
+        const maxShow = 3;
+        let html = '';
+
+        // Show up to 3 techniques as clickable chips
+        for (let i = 0; i < Math.min(techniques.length, maxShow); i++) {
+            html += `<a href="/mitre?technique=${techniques[i]}" class="mitre-chip">${techniques[i]}</a>`;
+        }
+
+        // Show +N more if needed
+        if (techniques.length > maxShow) {
+            html += `<span class="mitre-chip more">+${techniques.length - maxShow}</span>`;
+        }
+
+        return html;
+    }
+
+    async function loadAlerts() {
+        const filters = getFilters();
+        const params = new URLSearchParams({
+            limit: pageSize,
+            offset: currentPage * pageSize,
+            ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v !== null))
+        });
+
+        try {
+            const response = await fetch(`/api/alerts?${params}`);
+            const data = await response.json();
+
+            totalCount = data.total_count;
+            const alerts = data.alerts;
+
+            const tbody = document.getElementById('alerts-list');
+            if (alerts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 40px;">No alerts found</td></tr>';
+            } else {
+                tbody.innerHTML = alerts.map(alert => {
+                    const severity = getSeverity(alert.risk_score);
+                    const timestamp = new Date(alert.timestamp).toLocaleString();
+                    const mitreChips = renderMitreChips(alert.mitre_techniques);
+                    return `
+                    <tr>
+                        <td>${timestamp}</td>
+                        <td><span class="severity-badge ${severity}">${severity}</span></td>
+                        <td>${alert.user || '-'}</td>
+                        <td>${alert.host || '-'}</td>
+                        <td><div class="mitre-chips">${mitreChips}</div></td>
+                        <td>${alert.behavior}</td>
+                        <td>${alert.risk_score}</td>
+                        <td>${alert.status}</td>
+                        <td><a href="/alerts/${alert.id}" style="color: var(--accent);">View</a></td>
+                    </tr>
+                `;
+                }).join('');
+            }
+
+            updatePagination();
+        } catch (error) {
+            console.error('Error loading alerts:', error);
+            document.getElementById('alerts-list').innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 40px; color: red;">Error loading alerts</td></tr>';
+        }
+    }
+
+    function updatePagination() {
+        const totalPages = Math.ceil(totalCount / pageSize);
+        document.getElementById('page-info').textContent = `Page ${currentPage + 1} of ${totalPages || 1}`;
+        document.getElementById('prev-btn').disabled = currentPage === 0;
+        document.getElementById('next-btn').disabled = currentPage >= totalPages - 1;
+    }
+
+    function prevPage() {
+        if (currentPage > 0) {
+            currentPage--;
+            loadAlerts();
+        }
+    }
+
+    function nextPage() {
+        const totalPages = Math.ceil(totalCount / pageSize);
+        if (currentPage < totalPages - 1) {
+            currentPage++;
+            loadAlerts();
+        }
+    }
+
+    // Load on page load
+    loadAlerts();
+</script>
+{% endblock %}

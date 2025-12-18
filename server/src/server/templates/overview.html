@@ -1,0 +1,664 @@
+{% extends "base.html" %}
+
+{% block title %}UEBA Overview{% endblock %}
+
+{% block nav_overview_active %}active{% endblock %}
+
+{% block page_title %}System Overview{% endblock %}
+{% block page_subtitle %}Real-time UEBA monitoring dashboard{% endblock %}
+
+{% block content %}
+{% set pending_count = connected_agents | selectattr('status', 'equalto', 'pending') | list | count %}
+{% if pending_count > 0 %}
+<!-- Pending Agents Notification Banner -->
+<div style="background: rgba(255, 176, 32, 0.15); border: 1px solid rgba(255, 176, 32, 0.3); color: var(--accent-amber); padding: 16px 20px; border-radius: 8px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <div>
+            <strong style="font-size: 14px;">New Agent Connection Request!</strong>
+            <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">
+                {{ pending_count }} agent(s) {{ 'is' if pending_count == 1 else 'are' }} waiting for your approval. 
+                Scroll down to the "Connected Agents" table and click <strong>Approve</strong> or <strong>Decline</strong> buttons.
+            </p>
+        </div>
+    </div>
+    <a href="/endpoints" class="btn-link" style="font-weight: 600; white-space: nowrap;">Go to Endpoints →</a>
+</div>
+{% endif %}
+
+<!-- Stats Cards -->
+<div class="metrics-row" style="grid-template-columns: repeat(6, 1fr);">
+    <div class="metric-card">
+        <div class="metric-label">Total Agents</div>
+        <div class="metric-value highlight-cyan">{{ endpoint_stats.total_agents }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Online Agents</div>
+        <div class="metric-value" style="color: var(--accent-green);">{{ endpoint_stats.online_agents }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Offline Agents</div>
+        <div class="metric-value" style="color: var(--accent-red);">{{ endpoint_stats.offline_agents }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Agent Users</div>
+        <div class="metric-value">{{ endpoint_stats.agent_users }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Groups</div>
+        <div class="metric-value">{{ endpoint_stats.groups }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Active Rules</div>
+        <div class="metric-value">5</div>
+    </div>
+</div>
+
+<!-- Main content grid -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-top: 24px;">
+    <!-- Connected Agents -->
+    <div class="table-card">
+        <div class="table-controls" style="border-bottom: 1px solid var(--border-color); padding-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <h3 style="font-size: 16px; font-weight: 600;">Connected Agents</h3>
+                <span class="status-indicator">
+                    <span class="status-dot-live"></span>
+                    Live
+                </span>
+            </div>
+            <a href="/endpoints" class="btn-link">Manage Endpoints →</a>
+        </div>
+        
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Hostname</th>
+                    <th>IP Address</th>
+                    <th>OS</th>
+                    <th>Last Seen</th>
+                    <th>Events</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="agentsTableBody">
+                {% if connected_agents %}
+                {% for agent in connected_agents %}
+                <tr>
+                    <td>
+                        <span class="status-badge status-{{ agent.status }}">
+                            {{ agent.status | title }}
+                        </span>
+                    </td>
+                    <td class="mono">{{ agent.hostname }}</td>
+                    <td class="mono text-muted">{{ agent.ip_address }}</td>
+                    <td>
+                        {% if agent.os_type == 'windows' %}🪟{% elif agent.os_type == 'linux' %}🐧{% else %}🍎{% endif %}
+                        {{ agent.os_type | title }}
+                    </td>
+                    <td class="text-muted" title="{{ agent.last_seen }} (UTC)">{{ agent.last_seen[:19] }}Z</td>
+                    <td>
+                        <span class="badge badge-count">{{ agent.events_sent }}</span>
+                    </td>
+                    {% if agent.status == 'pending' %}
+                    <td>
+                        <div style="display: flex; gap: 6px;">
+                            <button onclick="approveAgent({{ agent.id }})" 
+                                    style="padding: 4px 12px; background: rgba(52, 168, 83, 0.15); color: #34a853; border: 1px solid rgba(52, 168, 83, 0.3); border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:3px"><polyline points="20 6 9 17 4 12"/></svg> Approve
+                            </button>
+                            <button onclick="declineAgent({{ agent.id }})" 
+                                    style="padding: 4px 12px; background: rgba(244, 67, 54, 0.15); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:3px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Decline
+                            </button>
+                        </div>
+                    </td>
+                    {% else %}
+                    <td>
+                        <a href="/endpoints" style="color: var(--accent-cyan); font-size: 12px;">Manage →</a>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <div class="empty-state-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></div>
+                            <div class="empty-state-title">No agents connected</div>
+                            <p style="font-size: 12px; margin-top: 8px;">
+                                Create agent credentials in <a href="/agent-users" style="color: var(--accent-cyan);">Agent Users</a> 
+                                and configure your agents to connect.
+                            </p>
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Quick Actions & System Info -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        <!-- Quick Actions -->
+        <div class="table-card" style="padding: 20px;">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">Quick Actions</h3>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <a href="/agent-users" class="action-card">
+                    <span class="action-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                    <div class="action-info">
+                        <div class="action-title">Create Agent User</div>
+                        <div class="action-desc">Generate credentials for new agents</div>
+                    </div>
+                    <span class="action-arrow">→</span>
+                </a>
+                <a href="/endpoints" class="action-card">
+                    <span class="action-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                    <div class="action-info">
+                        <div class="action-title">Manage Endpoints</div>
+                        <div class="action-desc">Configure agents and groups</div>
+                    </div>
+                    <span class="action-arrow">→</span>
+                </a>
+                <a href="/" class="action-card">
+                    <span class="action-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+                    <div class="action-info">
+                        <div class="action-title">View Alerts</div>
+                        <div class="action-desc">Check security alerts</div>
+                    </div>
+                    <span class="action-arrow">→</span>
+                </a>
+                <a href="/events" class="action-card">
+                    <span class="action-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
+                    <div class="action-info">
+                        <div class="action-title">Browse Events</div>
+                        <div class="action-desc">View raw log data</div>
+                    </div>
+                    <span class="action-arrow">→</span>
+                </a>
+            </div>
+        </div>
+        
+        <!-- System Status -->
+        <div class="table-card" style="padding: 20px;">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">System Status</h3>
+            <div class="system-status-list">
+                <div class="system-status-item">
+                    <span class="status-dot-live"></span>
+                    <span>Ingest Server</span>
+                    <span class="text-muted" style="margin-left: auto;">Running</span>
+                </div>
+                <div class="system-status-item">
+                    <span class="status-dot-live"></span>
+                    <span>Web Server</span>
+                    <span class="text-muted" style="margin-left: auto;">Running</span>
+                </div>
+                <div class="system-status-item">
+                    <span class="status-dot-live"></span>
+                    <span>Database</span>
+                    <span class="text-muted" style="margin-left: auto;">Connected</span>
+                </div>
+                <div class="system-status-item">
+                    <span class="status-dot-live"></span>
+                    <span>UEBA Engine</span>
+                    <span class="text-muted" style="margin-left: auto;">Active</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Detection Rules -->
+        <div class="table-card" style="padding: 20px;">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">Active Detection Rules</h3>
+            <div class="rules-list">
+                <div class="rule-item">
+                    <span class="rule-icon">🔐</span>
+                    <span>Failed Login Burst</span>
+                    <span class="badge badge-enabled">Active</span>
+                </div>
+                <div class="rule-item">
+                    <span class="rule-icon">📂</span>
+                    <span>Suspicious Path Execution</span>
+                    <span class="badge badge-enabled">Active</span>
+                </div>
+                <div class="rule-item">
+                    <span class="rule-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                    </span>
+                    <span>Security Log Clearing</span>
+                    <span class="badge badge-enabled">Active</span>
+                </div>
+                <div class="rule-item">
+                    <span class="rule-icon">🕐</span>
+                    <span>Restricted Hours Login</span>
+                    <span class="badge badge-enabled">Active</span>
+                </div>
+                <div class="rule-item">
+                    <span class="rule-icon">🛡️</span>
+                    <span>Firewall Disabled</span>
+                    <span class="badge badge-enabled">Active</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+    
+    .status-dot-live {
+        width: 8px;
+        height: 8px;
+        background: var(--accent-green);
+        border-radius: 50%;
+        animation: pulse-green 2s infinite;
+    }
+    
+    @keyframes pulse-green {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(52, 168, 83, 0.4); }
+        50% { box-shadow: 0 0 0 6px rgba(52, 168, 83, 0); }
+    }
+    
+    .btn-link {
+        color: var(--accent-cyan);
+        text-decoration: none;
+        font-size: 13px;
+    }
+    
+    .btn-link:hover {
+        text-decoration: underline;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+    }
+    
+    .status-online {
+        background: rgba(52, 168, 83, 0.15);
+        color: #34a853;
+    }
+    
+    .status-offline {
+        background: rgba(244, 67, 54, 0.15);
+        color: #f44336;
+    }
+    
+    .status-pending {
+        background: rgba(255, 176, 32, 0.15);
+        color: var(--accent-amber);
+    }
+    
+    .status-approved {
+        background: rgba(52, 168, 83, 0.15);
+        color: #34a853;
+    }
+    
+    .badge-count {
+        background: var(--bg-card-alt);
+        color: var(--text-secondary);
+    }
+    
+    .badge-enabled {
+        background: rgba(52, 168, 83, 0.15);
+        color: #34a853;
+    }
+    
+    .action-card {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        background: var(--bg-card-alt);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s;
+    }
+    
+    .action-card:hover {
+        border-color: var(--accent-cyan);
+        transform: translateX(4px);
+    }
+    
+    .action-icon {
+        font-size: 24px;
+    }
+    
+    .action-info {
+        flex: 1;
+    }
+    
+    .action-title {
+        font-weight: 600;
+        font-size: 14px;
+    }
+    
+    .action-desc {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+    
+    .action-arrow {
+        color: var(--text-muted);
+        font-size: 18px;
+    }
+    
+    .system-status-list, .rules-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .system-status-item, .rule-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 13px;
+    }
+    
+    .system-status-item:last-child, .rule-item:last-child {
+        border-bottom: none;
+    }
+    
+    .rule-icon {
+        font-size: 16px;
+    }
+    
+    .rule-item .badge {
+        margin-left: auto;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 32px;
+        color: var(--text-muted);
+    }
+    
+    .empty-state-icon {
+        font-size: 40px;
+        margin-bottom: 12px;
+    }
+    
+    .empty-state-title {
+        font-size: 14px;
+        color: var(--text-secondary);
+    }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<style>
+    /* Toast Notification */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .toast {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 16px 20px;
+        min-width: 300px;
+        max-width: 400px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        animation: slideInRight 0.3s ease-out;
+        font-size: 14px;
+    }
+    
+    .toast.success {
+        border-left: 4px solid #34a853;
+    }
+    
+    .toast.error {
+        border-left: 4px solid #f44336;
+    }
+    
+    .toast.warning {
+        border-left: 4px solid var(--accent-amber);
+    }
+    
+    .toast-icon {
+        font-size: 20px;
+    }
+    
+    .toast-message {
+        flex: 1;
+    }
+    
+    .toast-close {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 18px;
+        padding: 0;
+        line-height: 1;
+    }
+    
+    .toast-close:hover {
+        color: var(--text-primary);
+    }
+    
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+</style>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+    // Toast notification system
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+        
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        const icons = {
+            success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+            error: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+            warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+        };
+        
+        toast.innerHTML = `
+            <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
+            <span class="toast-message">${message}</span>
+            <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+        `;
+        
+        container.appendChild(toast);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.style.animation = 'slideInRight 0.3s ease-out reverse';
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 5000);
+    }
+    
+    // Refresh agents table without full page reload
+    async function refreshAgentsTable() {
+        try {
+            const response = await fetch('/api/connected-agents');
+            const data = await response.json();
+            
+            const tbody = document.getElementById('agentsTableBody');
+            if (!tbody) return;
+            
+            if (data.agents.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">🔌</div>
+                                <div class="empty-state-title">No agents connected</div>
+                                <p style="font-size: 12px; margin-top: 8px;">
+                                    Create agent credentials in <a href="/agent-users" style="color: var(--accent-cyan);">Agent Users</a> 
+                                    and configure your agents to connect.
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let html = '';
+            for (const agent of data.agents) {
+                const statusClass = `status-${agent.status}`;
+                const osIcon = agent.os_type === 'windows' ? '🪟' : agent.os_type === 'linux' ? '🐧' : '🍎';
+                const lastSeen = agent.last_seen ? agent.last_seen.substring(0, 16) : 'Never';
+                
+                let actionsHTML = '';
+                if (agent.status === 'pending') {
+                    actionsHTML = `
+                        <div style="display: flex; gap: 6px;">
+                            <button onclick="approveAgent(${agent.id})" 
+                                    style="padding: 4px 12px; background: rgba(52, 168, 83, 0.15); color: #34a853; border: 1px solid rgba(52, 168, 83, 0.3); border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500;">
+                                ✅ Approve
+                            </button>
+                            <button onclick="declineAgent(${agent.id})" 
+                                    style="padding: 4px 12px; background: rgba(244, 67, 54, 0.15); color: #f44336; border: 1px solid rgba(244, 67, 54, 0.3); border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500;">
+                                ❌ Decline
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    actionsHTML = `
+                        <a href="/endpoints" style="color: var(--accent-cyan); font-size: 12px;">Manage →</a>
+                    `;
+                }
+                
+                html += `
+                    <tr>
+                        <td>
+                            <span class="status-badge ${statusClass}">
+                                ${agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
+                            </span>
+                        </td>
+                        <td class="mono">${agent.hostname || 'Unknown'}</td>
+                        <td class="mono text-muted">${agent.ip_address || 'N/A'}</td>
+                        <td>
+                            ${osIcon} ${(agent.os_type || '').charAt(0).toUpperCase() + (agent.os_type || '').slice(1)}
+                        </td>
+                        <td class="text-muted">${lastSeen}</td>
+                        <td>
+                            <span class="badge badge-count">${agent.events_sent || 0}</span>
+                        </td>
+                        <td>${actionsHTML}</td>
+                    </tr>
+                `;
+            }
+            
+            tbody.innerHTML = html;
+        } catch (err) {
+            console.error('Failed to refresh agents table:', err);
+        }
+    }
+    
+    async function approveAgent(id) {
+        if (!confirm('Approve this endpoint? It will be able to send events to the server.')) return;
+        
+        try {
+            const response = await fetch(`/api/connected-agents/${id}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+            if (response.ok) {
+                showToast('Endpoint approved successfully! The agent can now send events.', 'success');
+                // Refresh table after a short delay to show the update
+                setTimeout(() => refreshAgentsTable(), 500);
+            } else {
+                showToast('Failed to approve endpoint: ' + (data.detail || 'Unknown error'), 'error');
+            }
+        } catch (err) {
+            console.error('Failed to approve agent:', err);
+            showToast('Error approving endpoint. Please try again.', 'error');
+        }
+    }
+    
+    async function declineAgent(id) {
+        if (!confirm('Decline this endpoint? It will NOT be able to send events and the connection will be rejected.')) return;
+        
+        try {
+            const response = await fetch(`/api/connected-agents/${id}/decline`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+            if (response.ok) {
+                showToast('Endpoint declined. The agent connection has been rejected.', 'warning');
+                // Refresh table after a short delay to show the update
+                setTimeout(() => refreshAgentsTable(), 500);
+            } else {
+                showToast('Failed to decline endpoint: ' + (data.detail || 'Unknown error'), 'error');
+            }
+        } catch (err) {
+            console.error('Failed to decline agent:', err);
+            showToast('Error declining endpoint. Please try again.', 'error');
+        }
+    }
+    
+    // Auto-refresh agents list every 10 seconds
+    setInterval(async () => {
+        try {
+            const response = await fetch('/api/connected-agents');
+            const data = await response.json();
+            // Check for pending agents and show notification
+            const pendingAgents = data.agents.filter(a => a.status === 'pending');
+            if (pendingAgents.length > 0) {
+                // Could show a notification here
+                console.log('⚠️', pendingAgents.length, 'agent(s) waiting for approval');
+            }
+            // Refresh table if we're on the overview page
+            if (document.getElementById('agentsTableBody')) {
+                refreshAgentsTable();
+            }
+        } catch (err) {
+            console.error('Failed to refresh agents:', err);
+        }
+    }, 10000);
+</script>
+{% endblock %}
+

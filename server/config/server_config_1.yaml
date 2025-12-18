@@ -1,0 +1,232 @@
+# UEBA Server Configuration
+# =========================
+# Multi-Source Log Pipeline Configuration
+
+# TCP port for receiving events from Windows agents
+# Both Sysmon and Windows Event Viewer logs are received on this single port
+# The agent wraps each event in an envelope: {"source": "sysmon"|"windows_event", "event": {...}}
+ingest_port: 9000
+
+# TLS encryption for agent-server communication
+tls:
+  enabled: false  # Set to true to enable TLS encryption
+  cert_path: "config/server.crt"  # Server certificate file
+  key_path: "config/server.key"    # Server private key file
+  # For production, use CA-signed certificates
+  # For demo/dev, use self-signed certificates (see scripts/generate_certs.sh)
+
+# HTTP port for the web dashboard
+web_port: 8080
+
+# Database configuration
+database:
+  # Path to SQLite database file (relative to project root)
+  path: "data/events.db"
+  # Maximum events to keep (0 = unlimited)
+  max_events: 100000
+
+# Logging configuration
+logging:
+  level: "INFO"
+  # Log file path (relative to project root, or null for stdout only)
+  file: "logs/server.log"
+
+# Web UI settings
+web_ui:
+  # Number of events to show per page
+  events_per_page: 100
+  # Auto-refresh interval in milliseconds (for polling fallback)
+  refresh_interval_ms: 2000
+
+# ===========================================
+# AI Server Integration (Ollama LLM Analysis)
+# ===========================================
+ai_server:
+  # Enable/disable AI analysis
+  enabled: true
+  
+  # AI Server URL (Ubuntu VM running Ollama + FastAPI)
+  # Environment variable: AI_SERVER_URL
+  url: "http://192.168.213.138:8000"
+  
+  # API key for authentication (read from environment variable)
+  # Environment variable: AI_SERVER_API_KEY
+  api_key_env: "AI_SERVER_API_KEY"
+  
+  # Request timeout in seconds (Ollama can be slow)
+  timeout_seconds: 45
+  
+  # Retry configuration
+  retry_count: 2
+  retry_delay_seconds: 1
+  
+  # Circuit breaker settings
+  failure_threshold: 5      # Open circuit after N failures
+  recovery_timeout: 120     # Seconds before trying again
+
+# ===========================================
+# n8n Webhook Integration (VirusTotal, AbuseIPDB)
+# ===========================================
+n8n:
+  # Enable/disable n8n enrichment
+  enabled: true
+  
+  # n8n webhook URL for IOC reputation workflow
+  # Environment variable: N8N_WEBHOOK_URL
+  webhook_url_env: "N8N_WEBHOOK_URL"
+  
+  # Request timeout in seconds
+  timeout_seconds: 30
+  
+  # Rate limiting (free tier protection)
+  max_calls_per_hour: 100
+  
+  # Cache settings
+  cache_ttl_clean: 3600      # 1 hour for clean results
+  cache_ttl_malicious: 86400 # 24 hours for malicious results
+
+# ===========================================
+# Baseline & Behavior Analysis
+# ===========================================
+baseline:
+  # Enable baseline tracking
+  enabled: true
+  
+  # Database path for baseline statistics
+  db_path: "data/baselines.db"
+  
+  # Cache TTL in seconds
+  cache_ttl: 300
+  
+  # Minimum observations before baseline is reliable
+  min_observations: 10
+
+# ===========================================
+# Whitelist/Blacklist Configuration
+# ===========================================
+lists:
+  # Path to lists configuration file
+  config_path: "config/lists.yaml"
+  
+  # Database path for dynamic lists
+  db_path: "data/lists.db"
+
+# ===========================================
+# UEBA Scheduler Configuration
+# ===========================================
+scheduler:
+  # Enable/disable background scheduler
+  enabled: true
+  
+  # Baseline update interval (minutes) - recommended: 360 (6 hours)
+  baseline_interval_minutes: 360
+  
+  # Session feature aggregation interval (minutes) - recommended: 60 (1 hour)
+  session_interval_minutes: 60
+  
+  # Model training interval (hours) - recommended: 24 (daily)
+  model_train_interval_hours: 24
+  
+  # Baseline lookback window (days) - how much history to use for baselines
+  baseline_lookback_days: 14
+
+# ===========================================
+# Learning Mode Configuration
+# ===========================================
+# When learning_mode is true:
+# - Events are still stored and processed
+# - Baselines and models are still computed
+# - Alerts are suppressed (status='suppressed') or not created
+# Recommended: Enable for first 7-14 days of deployment
+learning_mode: false
+
+# Minimum days of data before generating alerts for an entity (cold-start)
+min_entity_age_days: 3
+
+# ===========================================
+# UEBA Anomaly Detection Configuration
+# ===========================================
+ueba:
+  # Enable UEBA anomaly alerts (in addition to behavior rules)
+  anomaly_alerts_enabled: true
+  
+  # Minimum anomaly score to trigger alert (0-100)
+  anomaly_alert_threshold: 70
+  
+  # Enable n8n enrichment for medium-risk alerts
+  enrichment_enabled: true
+  
+  # Score range for n8n enrichment (40-75 = uncertain)
+  enrichment_min_score: 40
+  enrichment_max_score: 75
+
+# ===========================================
+# SIEM Export Configuration (Elasticsearch/ELK)
+# ===========================================
+# Environment Variables (SECURITY - never hardcode credentials):
+# - ELK_URL: Elasticsearch URL (overrides elasticsearch_url below)
+# - ELK_USERNAME or ES_USERNAME: Elasticsearch username
+# - ES_PASSWORD: Elasticsearch password
+# - ELK_CA_CERT: Path to CA certificate file (for self-signed certs)
+# - ELK_TLS_VERIFY: Set to 'false' to disable TLS verification (dev only)
+
+siem:
+  # Enable/disable SIEM export
+  enabled: true
+  
+  # Elasticsearch URL (required if enabled)
+  # Format: http://elasticsearch-host:port or https://elasticsearch-host:port
+  # Can be overridden by ELK_URL environment variable
+  elasticsearch_url: "https://10.10.4.151:9200"
+  
+  # TLS Configuration (for self-signed certificates)
+  # Set to false to disable TLS verification (DEV ONLY - not recommended for production)
+  # Can be overridden by ELK_TLS_VERIFY=false environment variable
+  tls_verify: false
+  
+  # Path to CA certificate file (for self-signed certs)
+  # Can be overridden by ELK_CA_CERT environment variable
+  # ca_cert_path: "/path/to/ca.crt"
+  
+  # Use Logstash instead of direct Elasticsearch (optional)
+  # Set to true if you have Logstash HTTP input configured
+  use_logstash: false
+  # logstash_url: "http://logstash-host:8080"  # Uncomment if using Logstash
+  
+  # Elasticsearch authentication (if required)
+  # SECURITY: Use environment variables for credentials in production
+  # Set ELK_USERNAME/ES_USERNAME and ES_PASSWORD environment variables
+  # 
+  # For development/testing, credentials can be set here:
+  es_username: "elastic"
+  es_password: "5y1TPgd1u16uJIGMm2nL"
+  
+  # Index names
+  index_events: "ueba-events"   # Index for scored events
+  index_alerts: "ueba-alerts"   # Index for UEBA alerts
+  
+  # Batch settings
+  batch_size: 100              # Events/alerts per batch
+  batch_interval_seconds: 5.0   # Max wait before sending batch (seconds)
+  timeout_seconds: 10.0         # HTTP request timeout (seconds)
+  
+  # Export settings
+  export_events: true           # Export scored events (risk_score > 0)
+  export_alerts: true           # Export alerts (default: true)
+  
+  # Flood prevention (applied to event export)
+  # Events are only exported if: risk_score > 0 OR rule_score > 0 OR anomaly_score > 0
+  # Deduplication: same (channel, record_id) within 10 minutes is skipped
+  # Rate limit: max 100 docs per host per minute
+
+# Event Sources Configuration
+# The server supports multiple Windows log sources:
+#   - sysmon: Microsoft-Windows-Sysmon/Operational logs (process, network, file, registry events)
+#   - windows_event: Windows Event Viewer logs (Security events like 4624/4625 logon events)
+#
+# Both sources are:
+#   - Ingested through the same TCP port
+#   - Normalized into a common schema
+#   - Stored together with a 'source' field
+#   - Visible in the same dashboard with source filtering
+

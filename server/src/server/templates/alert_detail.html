@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+
+{% block title %}Alert #{{ alert.id }}{% endblock %}
+
+{% block page_title %}Alert #{{ alert.id }}{% endblock %}
+{% block page_subtitle %}{{ alert.summary }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .alert-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        background: var(--bg-card);
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+
+    .alert-meta {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    .meta-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .meta-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
+    .meta-value {
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .severity-badge {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .severity-badge.CRITICAL {
+        background: #ff4444;
+        color: white;
+    }
+
+    .severity-badge.HIGH {
+        background: #ff8800;
+        color: white;
+    }
+
+    .severity-badge.MEDIUM {
+        background: #ffbb00;
+        color: #000;
+    }
+
+    .severity-badge.LOW {
+        background: #88cc00;
+        color: #000;
+    }
+
+    .section {
+        background: var(--bg-card);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .section-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .section-icon {
+        width: 20px;
+        height: 20px;
+        color: var(--accent);
+    }
+
+    .reasons-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .reason-item {
+        padding: 12px;
+        background: var(--bg-card-alt);
+        border-radius: 8px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: start;
+        gap: 12px;
+    }
+
+    .reason-icon {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        color: var(--text-secondary);
+    }
+
+    .reason-detail {
+        flex: 1;
+    }
+
+    .evidence-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .evidence-table th {
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-secondary);
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .evidence-table td {
+        padding: 12px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .evidence-table tbody tr:hover {
+        background: var(--bg-card-alt);
+    }
+
+    .mitre-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        background: var(--accent);
+        color: white;
+        border-radius: 6px;
+        font-size: 12px;
+        margin-right: 4px;
+    }
+
+    .actions {
+        display: flex;
+        gap: 12px;
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+    }
+
+    .btn-fp {
+        background: #ff4444;
+        color: white;
+    }
+
+    .btn-fp:hover {
+        background: #dd3333;
+    }
+
+    .btn-tp {
+        background: #00aa00;
+        color: white;
+    }
+
+    .btn-tp:hover {
+        background: #008800;
+    }
+
+    .btn svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .feedback-info {
+        margin-top: 16px;
+        padding: 12px;
+        background: var(--bg-card-alt);
+        border-radius: 8px;
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="alert-header">
+    <div class="alert-meta">
+        <div class="meta-item">
+            <span class="meta-label">Severity</span>
+            <span
+                class="severity-badge {% if alert.risk_score >= 80 %}CRITICAL{% elif alert.risk_score >= 60 %}HIGH{% elif alert.risk_score >= 40 %}MEDIUM{% else %}LOW{% endif %}">
+                {% if alert.risk_score >= 80 %}CRITICAL{% elif alert.risk_score >= 60 %}HIGH{% elif alert.risk_score >=
+                40 %}MEDIUM{% else %}LOW{% endif %}
+            </span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-label">Risk Score</span>
+            <span class="meta-value">{{ alert.risk_score }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-label">Status</span>
+            <span class="meta-value">{{ alert.status }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-label">Occurrences</span>
+            <span class="meta-value">{{ alert.occurrence_count }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-title">
+        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        Summary
+    </div>
+    <p>{{ alert.summary }}</p>
+    <div style="margin-top: 12px; font-size: 14px; color: var(--text-secondary);">
+        <strong>User:</strong> {{ alert.user }} | <strong>Host:</strong> {{ alert.host }} |
+        <strong>Behavior:</strong> {{ alert.behavior }} | <strong>Timestamp:</strong> {{ alert.timestamp }}
+    </div>
+</div>
+
+{% if alert.reasons %}
+<div class="section">
+    <div class="section-title">
+        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+            <path d="M12 17h.01" />
+        </svg>
+        Why is this unusual?
+    </div>
+    <ul class="reasons-list">
+        {% for reason in alert.reasons %}
+        <li class="reason-item">
+            <svg class="reason-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                {% if reason.type == "unusual_hour" %}
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+                {% elif reason.type == "rare_process" %}
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+                {% elif reason.type == "spike" %}
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                <polyline points="16 7 22 7 22 13" />
+                {% elif reason.type == "rare_domain" %}
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+                {% else %}
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                {% endif %}
+            </svg>
+            <div class="reason-detail">
+                <strong>{{ reason.type.replace('_', ' ').title() }}:</strong> {{ reason.detail }}
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if alert.mitre_tactics or alert.mitre_techniques %}
+<div class="section">
+    <div class="section-title">
+        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10" />
+            <circle cx="12" cy="12" r="6" />
+            <circle cx="12" cy="12" r="2" />
+        </svg>
+        MITRE ATT&CK Mapping
+    </div>
+    <div>
+        {% if alert.mitre_tactics %}
+        <div style="margin-bottom: 12px;">
+            <strong>Tactics:</strong>
+            {% for tactic in alert.mitre_tactics %}
+            <a href="https://attack.mitre.org/tactics/{{ tactic }}/" target="_blank" class="mitre-badge"
+                style="text-decoration: none; margin-right: 4px;">
+                {{ tactic }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if alert.mitre_techniques %}
+        <div>
+            <strong>Techniques:</strong>
+            {% for technique in alert.mitre_techniques %}
+            {% set tech_url = technique.replace('.', '/') %}
+            <a href="https://attack.mitre.org/techniques/{{ tech_url }}/" target="_blank" class="mitre-badge"
+                style="text-decoration: none; margin-right: 4px;">
+                {{ technique }}
+            </a>
+            {% endfor %}
+            <span style="margin-left: 8px;">
+                <a href="/mitre?technique={{ alert.mitre_techniques[0] if alert.mitre_techniques else '' }}"
+                    style="color: var(--accent); font-size: 12px;">View related alerts →</a>
+            </span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<div class="section">
+    <div class="section-title">
+        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
+        </svg>
+        Evidence Timeline
+    </div>
+    <div id="evidence-loading">Loading evidence...</div>
+    <table class="evidence-table" id="evidence-table" style="display: none;">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Event ID</th>
+                <th>Action</th>
+                <th>Process</th>
+                <th>Source IP</th>
+                <th>Dest IP</th>
+            </tr>
+        </thead>
+        <tbody id="evidence-body">
+        </tbody>
+    </table>
+</div>
+
+<div class="section">
+    <div class="section-title">
+        <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polyline points="9 11 12 14 22 4" />
+            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+        </svg>
+        Actions
+    </div>
+    <div class="actions">
+        <button class="btn btn-fp" onclick="markFeedback('FALSE_POSITIVE')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+            Mark as False Positive
+        </button>
+        <button class="btn btn-tp" onclick="markFeedback('TRUE_POSITIVE')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            Mark as True Positive
+        </button>
+    </div>
+    <div class="feedback-info">
+        <strong>False Positive:</strong> Alert signature will be added to allowlist. Similar events won't generate
+        alerts until removed from allowlist.<br>
+        <strong>True Positive:</strong> Confirms this is a real threat. Alert will be marked as verified.
+    </div>
+</div>
+
+<script>
+    async function loadEvidence() {
+        try {
+            const response = await fetch(`/api/alerts/{{ alert.id }}/evidence`);
+            const data = await response.json();
+
+            document.getElementById('evidence-loading').style.display = 'none';
+            document.getElementById('evidence-table').style.display = 'table';
+
+            const tbody = document.getElementById('evidence-body');
+            if (data.events.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No evidence events found</td></tr>';
+            } else {
+                tbody.innerHTML = data.events.map(event => {
+                    const timestamp = new Date(event.timestamp).toLocaleString();
+                    return `
+                    <tr>
+                        <td>${timestamp}</td>
+                        <td>${event.event_id || 'N/A'}</td>
+                        <td>${event.action_type || 'N/A'}</td>
+                        <td>${event.process_name || 'N/A'}</td>
+                        <td>${event.source_ip || 'N/A'}</td>
+                        <td>${event.dest_ip || 'N/A'}</td>
+                    </tr>
+                `;
+                }).join('');
+            }
+        } catch (error) {
+            console.error('Error loading evidence:', error);
+            document.getElementById('evidence-loading').textContent = 'Error loading evidence';
+        }
+    }
+
+    async function markFeedback(status) {
+        const action = status === 'FALSE_POSITIVE'
+            ? 'This will add the alert signature to the allowlist. Similar events will NOT generate alerts until removed from the allowlist.\n\nContinue?'
+            : 'This will mark the alert as a verified threat. Similar events will continue generating alerts.\n\nContinue?';
+
+        if (!confirm(action)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/alerts/{{ alert.id }}/feedback`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: status,
+                    add_to_allowlist: status === 'FALSE_POSITIVE'
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                if (status === 'FALSE_POSITIVE') {
+                    alert('Alert marked as False Positive.\n\nSignature added to allowlist - similar events will not generate alerts.');
+                } else {
+                    alert('Alert marked as True Positive.\n\nThis threat has been confirmed and logged.');
+                }
+                location.reload();
+            } else {
+                alert('Error: ' + (result.detail || 'Failed to update alert'));
+            }
+        } catch (error) {
+            console.error('Error updating feedback:', error);
+            alert('Error updating alert status');
+        }
+    }
+
+    // Load evidence on page load
+    loadEvidence();
+</script>
+{% endblock %}

@@ -1,0 +1,4 @@
+PyYAML>=6.0
+# tkinter is included in Python standard library on most Linux distributions
+# If not available, install: sudo apt install python3-tk (Debian/Ubuntu)
+#                            sudo dnf install python3-tkinter (Fedora/RHEL)

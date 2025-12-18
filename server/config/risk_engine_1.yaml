@@ -1,0 +1,44 @@
+# AI Risk Engine Configuration
+# ============================
+# Main configuration file for the Risk Engine module
+
+# Enable/disable risk engine
+enabled: true
+
+# Configuration file paths (relative to server/src/server/risk/)
+config_paths:
+  rules: "config/rules.yaml"
+  thresholds: "config/thresholds.yaml"
+
+# Risk engine settings
+settings:
+  # Log risk assessments (for debugging)
+  log_assessments: false
+  
+  # Log only high-risk events (risk >= 70)
+  log_high_risk_only: true
+  
+  # Performance monitoring
+  track_latency: true
+
+# Phase 2: Anomaly Detection (not yet implemented)
+anomaly_detection:
+  enabled: true
+  model_path: "data/risk_models/isolation_forest.pkl"
+  contamination: 0.1  # Expected anomaly rate (10%)
+  training_days: 30
+
+# Phase 3: Embedding Analysis (not yet implemented)
+embedding_analysis:
+  enabled: false
+  model_name: "all-MiniLM-L6-v2"
+  chromadb_path: "data/risk_models/chromadb"
+  top_k_similar: 50
+
+# Phase 5: LLM Explanations (not yet implemented)
+llm_explanations:
+  enabled: false
+  threshold: 70  # Only generate explanations for risk >= 70
+  model: "phi-3-mini"
+  ollama_url: "http://localhost:11434"
+

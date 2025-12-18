@@ -1,0 +1,115 @@
+# Risk Engine Rules Configuration
+# ================================
+# Defines rule-based patterns for fast risk scoring
+
+# Whitelist: Processes that are always considered safe (risk = 0)
+whitelist:
+  processes:
+    - "svchost.exe"
+    - "explorer.exe"
+    - "winlogon.exe"
+    - "csrss.exe"
+    - "lsass.exe"
+    - "services.exe"
+    - "smss.exe"
+    - "dwm.exe"
+    - "conhost.exe"
+    - "RuntimeBroker.exe"
+    - "SearchIndexer.exe"
+    - "spoolsv.exe"
+    - "taskhostw.exe"
+    - "WmiPrvSE.exe"
+    - "audiodg.exe"
+    - "sihost.exe"
+    - "dllhost.exe"
+    - "msiexec.exe"  # Windows Installer (common system process)
+  
+  # Whitelist parent-child combinations (parent -> child)
+  parent_child:
+    - parent: "explorer.exe"
+      child: "notepad.exe"
+    - parent: "explorer.exe"
+      child: "cmd.exe"
+    - parent: "explorer.exe"
+      child: "powershell.exe"
+    - parent: "services.exe"
+      child: "svchost.exe"
+    - parent: "winlogon.exe"
+      child: "userinit.exe"
+
+# Blacklist: Critical patterns that indicate high risk (risk >= 90)
+blacklist:
+  # Suspicious command line patterns (regex)
+  command_patterns:
+    - pattern: "powershell.*-enc"
+      description: "PowerShell with base64 encoded command"
+      risk_score: 95
+    
+    - pattern: 'powershell.*-e\s'
+      description: "PowerShell with encoded command (short form)"
+      risk_score: 95
+    
+    - pattern: "mimikatz"
+      description: "Mimikatz credential harvesting tool"
+      risk_score: 98
+    
+    - pattern: "psexec"
+      description: "PsExec lateral movement tool"
+      risk_score: 90
+    
+    - pattern: "wmic.*process.*call.*create"
+      description: "WMIC process creation (often used for evasion)"
+      risk_score: 85
+    
+    - pattern: "certutil.*-urlcache.*-split.*-f"
+      description: "CertUtil used for file download (common in attacks)"
+      risk_score: 88
+    
+    - pattern: "rundll32.*javascript"
+      description: "Rundll32 executing JavaScript (suspicious)"
+      risk_score: 92
+    
+    - pattern: "regsvr32.*/s.*/u.*/i:.*scrobj"
+      description: "Regsvr32 scriptlet execution"
+      risk_score: 90
+
+# Suspicious parent-child relationships
+suspicious_parent_child:
+  # Office applications spawning scripts/interpreters
+  - parent_pattern: ".*(outlook|winword|excel|powerpnt|msaccess).exe"
+    child_pattern: ".*(powershell|cmd|wscript|cscript|mshta|rundll32).exe"
+    description: "Office application spawning script interpreter"
+    risk_score: 75
+  
+  # Browser spawning scripts
+  - parent_pattern: ".*(chrome|firefox|msedge|iexplore).exe"
+    child_pattern: ".*(powershell|cmd|wscript|cscript|mshta).exe"
+    description: "Browser spawning script interpreter"
+    risk_score: 70
+  
+  # System process path mismatch (process running from unusual location)
+  - parent_pattern: ".*"
+    child_pattern: ".*"
+    path_check: true  # Check if child process path is in system directories
+    description: "Process path validation"
+    risk_score: 80
+
+# System process path validation
+path_validation:
+  # Expected system directories
+  system_dirs:
+    - 'C:\Windows\System32'
+    - 'C:\Windows\SysWOW64'
+    - 'C:\Program Files'
+    - 'C:\Program Files (x86)'
+  
+  # Suspicious locations
+  suspicious_dirs:
+    - 'C:\Users\.*\AppData\Local\Temp'
+    - 'C:\Users\.*\AppData\Roaming'
+    - 'C:\Windows\Temp'
+    - 'C:\Temp'
+  
+  # If system process runs from suspicious location, add risk
+  system_process_suspicious_path_risk: 85
+

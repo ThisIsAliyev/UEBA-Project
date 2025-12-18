@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - UEBA Dashboard</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-page: #050814;
+            --bg-card: #0b1020;
+            --bg-card-alt: #101426;
+            --bg-hover: rgba(255, 255, 255, 0.05);
+            --text-primary: #e8eaed;
+            --text-secondary: #9aa0a6;
+            --text-muted: #5f6368;
+            --accent-cyan: #00d4ff;
+            --accent-teal: #00e5d4;
+            --accent-amber: #ffb020;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-page);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-image: 
+                radial-gradient(ellipse at 50% 0%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 50%, rgba(0, 229, 212, 0.05) 0%, transparent 40%);
+        }
+        
+        .onboarding-container {
+            width: 100%;
+            max-width: 700px;
+            padding: 20px;
+        }
+        
+        .onboarding-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .onboarding-logo {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-teal));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin: 0 auto 16px;
+        }
+        
+        .onboarding-title {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .onboarding-subtitle {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 40px;
+        }
+        
+        .step-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border-color);
+            transition: all 0.3s ease;
+        }
+        
+        .step-dot.active {
+            background: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--accent-cyan);
+        }
+        
+        /* Step 1: Choose type */
+        .step-content {
+            display: none;
+        }
+        
+        .step-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .step-question {
+            text-align: center;
+            font-size: 18px;
+            margin-bottom: 32px;
+            color: var(--text-primary);
+        }
+        
+        .option-cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        
+        .option-card {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .option-card:hover:not(.disabled) {
+            border-color: var(--accent-cyan);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .option-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .option-card.selected {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 212, 255, 0.05);
+        }
+        
+        .option-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .option-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .option-desc {
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        
+        .coming-soon {
+            display: inline-block;
+            background: var(--accent-amber);
+            color: #000;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+        
+        /* Step 2: OS Selection */
+        .os-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        
+        .os-card {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .os-card:hover {
+            border-color: var(--accent-cyan);
+            transform: translateY(-2px);
+        }
+        
+        .os-card.selected {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 212, 255, 0.05);
+        }
+        
+        .os-icon {
+            font-size: 36px;
+            margin-bottom: 12px;
+        }
+        
+        .os-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        /* Navigation buttons */
+        .step-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-family: var(--font-sans);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-secondary {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--text-secondary);
+            color: var(--text-primary);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-teal));
+            border: none;
+            color: #000;
+            font-weight: 600;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.3);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .skip-link {
+            display: block;
+            text-align: center;
+            margin-top: 24px;
+            color: var(--text-muted);
+            font-size: 13px;
+            text-decoration: none;
+        }
+        
+        .skip-link:hover {
+            color: var(--text-secondary);
+        }
+        
+        @media (max-width: 600px) {
+            .option-cards {
+                grid-template-columns: 1fr;
+            }
+            .os-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="onboarding-container">
+        <div class="onboarding-header">
+            <div class="onboarding-logo">🛡️</div>
+            <h1 class="onboarding-title">Welcome to UEBA Security</h1>
+            <p class="onboarding-subtitle">Let's set up your first endpoint</p>
+        </div>
+        
+        <div class="step-indicator">
+            <div class="step-dot active" id="dot1"></div>
+            <div class="step-dot" id="dot2"></div>
+        </div>
+        
+        <!-- Step 1: Choose Workstation or Domain -->
+        <div class="step-content active" id="step1">
+            <p class="step-question">What do you want to add first?</p>
+            
+            <div class="option-cards">
+                <div class="option-card" id="optWorkstation" onclick="selectType('workstation')">
+                    <div class="option-icon">🖥️</div>
+                    <div class="option-title">Workstation(s)</div>
+                    <div class="option-desc">
+                        Single or multiple independent machines.
+                        Ideal for standalone workstations, laptops, or servers.
+                    </div>
+                </div>
+                
+                <div class="option-card disabled" id="optDomain">
+                    <div class="option-icon">🏢</div>
+                    <div class="option-title">Domain Computers</div>
+                    <div class="option-desc">
+                        Active Directory environment.
+                        Monitor domain-joined computers centrally.
+                    </div>
+                    <span class="coming-soon">Coming Soon</span>
+                </div>
+            </div>
+            
+            <div class="step-actions">
+                <a href="/logout" class="btn btn-secondary">Cancel</a>
+                <button class="btn btn-primary" id="btnNext1" onclick="goToStep2()" disabled>
+                    Continue →
+                </button>
+            </div>
+        </div>
+        
+        <!-- Step 2: Select OS -->
+        <div class="step-content" id="step2">
+            <p class="step-question">Which operating system is this workstation running?</p>
+            
+            <div class="os-cards">
+                <div class="os-card" onclick="selectOS('windows')">
+                    <div class="os-icon">🪟</div>
+                    <div class="os-name">Windows</div>
+                </div>
+                
+                <div class="os-card" onclick="selectOS('linux')">
+                    <div class="os-icon">🐧</div>
+                    <div class="os-name">Linux</div>
+                </div>
+                
+                <div class="os-card" onclick="selectOS('macos')">
+                    <div class="os-icon">🍎</div>
+                    <div class="os-name">macOS</div>
+                </div>
+            </div>
+            
+            <div class="step-actions">
+                <button class="btn btn-secondary" onclick="goToStep1()">← Back</button>
+                <button class="btn btn-primary" id="btnNext2" onclick="submitOnboarding()" disabled>
+                    Continue to Setup →
+                </button>
+            </div>
+        </div>
+        
+        <a href="/endpoints" class="skip-link">Skip setup and add endpoints manually →</a>
+    </div>
+    
+    <script>
+        let selectedType = null;
+        let selectedOS = null;
+        
+        function selectType(type) {
+            selectedType = type;
+            
+            // Update UI
+            document.querySelectorAll('.option-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.getElementById('optWorkstation').classList.add('selected');
+            document.getElementById('btnNext1').disabled = false;
+        }
+        
+        function goToStep2() {
+            if (!selectedType) return;
+            
+            document.getElementById('step1').classList.remove('active');
+            document.getElementById('step2').classList.add('active');
+            document.getElementById('dot1').classList.remove('active');
+            document.getElementById('dot2').classList.add('active');
+        }
+        
+        function goToStep1() {
+            document.getElementById('step2').classList.remove('active');
+            document.getElementById('step1').classList.add('active');
+            document.getElementById('dot2').classList.remove('active');
+            document.getElementById('dot1').classList.add('active');
+        }
+        
+        function selectOS(os) {
+            selectedOS = os;
+            
+            // Update UI
+            document.querySelectorAll('.os-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            document.getElementById('btnNext2').disabled = false;
+        }
+        
+        function submitOnboarding() {
+            if (!selectedOS) return;
+            
+            // Submit and redirect to endpoints page
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/onboarding/workstation';
+            
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'os_type';
+            input.value = selectedOS;
+            form.appendChild(input);
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+    </script>
+</body>
+</html>
+
