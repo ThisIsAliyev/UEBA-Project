@@ -73,15 +73,18 @@ This project provides a complete telemetry pipeline: collecting Windows Sysmon e
 ## Repository Structure
 
 ```
-Team-5-Project-main/
+UEBA-Project/
 │
 ├── README.md                    # You are here
 │
 ├── agent/                       # Windows Sysmon Agent
 │   ├── src/                     # Agent source code
-│   ├── config/agent_config.yaml # Agent configuration
+│   ├── config/                  # agent_config.yaml.example (copy to agent_config.yaml)
 │   ├── dist/SysmonAgent.exe     # Pre-built agent
 │   └── README.md                # Agent-specific documentation
+│
+├── agent-linux/                 # Linux Agent
+│   └── README.md                # Linux agent documentation
 │
 ├── server/                      # Main Web Server (FastAPI)
 │   ├── src/server/
@@ -91,18 +94,37 @@ Team-5-Project-main/
 │   │   ├── ingest.py            # TCP log ingest
 │   │   └── main.py              # Server entry point
 │   ├── config/                  # Server configuration files
-│   │   ├── server_config.yaml
-│   │   └── lists.yaml
+│   ├── docs/                    # Architecture, SIEM, security, troubleshooting
 │   ├── .env.example             # Environment variable template
 │   └── README.md                # Server-specific documentation
 │
-└── ai_server/                   # AI Analysis Server (FastAPI + Ollama)
-    ├── src/                     # AI server source code
-    │   ├── services/            # Ollama client and prompt builder
-    │   └── middleware/          # API key and IP auth
-    ├── .env.example             # Environment variable template
-    └── README.md                # AI server documentation
+├── ai_server/                   # AI Analysis Server (FastAPI + Ollama)
+│   ├── src/                     # AI server source code
+│   │   ├── services/            # Ollama client and prompt builder
+│   │   └── middleware/          # API key and IP auth
+│   ├── .env.example             # Environment variable template
+│   └── README.md                # AI server documentation
+│
+└── docs/                        # Project documentation
+    ├── README.md                # Documentation index
+    └── engineering-notes/       # Historical fix reports & root-cause analyses
 ```
+
+---
+
+## Documentation
+
+Start at the [documentation index](docs/README.md).
+
+| Guide | Description |
+|---|---|
+| [Quick start](docs/quickstart.md) | Fastest path to a running server and agent |
+| [How to run](docs/how-to-run.md) | Full run instructions for every component |
+| [Scoring formula](docs/scoring-formula.md) | How the risk score is calculated |
+| [Server architecture](server/docs/architecture-guide.md) | UEBA engine architecture and data flow |
+| [Server security](server/docs/security.md) | Security model, authentication and hardening |
+| [Troubleshooting](server/docs/troubleshooting.md) | Diagnosing common problems |
+
 
 ---
 
@@ -120,7 +142,7 @@ Team-5-Project-main/
 
 ## Setup & Installation
 
-For detailed setup instructions, see the sections below and the component-specific README files in each directory.
+For detailed setup instructions, see the sections below, the [documentation index](docs/README.md), and the component-specific README files in each directory.
 
 ### Step 1: Clone and Navigate
 

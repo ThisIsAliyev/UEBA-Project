@@ -1,4 +1,0 @@
-"""
-Sysmon Event Forwarder
-"""
-

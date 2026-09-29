@@ -49,6 +49,6 @@ data/
 # Keep dist/ for pre-built executables
 # build/ is already ignored above
 
-# Config with sensitive data (optional - remove if you want to track config)
-# config/agent_config.yaml
+# Local runtime config (contains credentials) - never commit
+config/agent_config.yaml
 
