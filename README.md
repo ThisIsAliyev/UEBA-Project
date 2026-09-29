@@ -106,8 +106,6 @@ UEBA-Project/
 │   └── README.md                # AI server documentation
 │
 └── docs/                        # Project documentation
-    ├── README.md                # Documentation index
-    └── engineering-notes/       # Historical fix reports & root-cause analyses
 ```
 
 ---

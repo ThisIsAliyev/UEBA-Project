@@ -32,9 +32,3 @@ component's own README: [agent](../agent/README.md), [agent-linux](../agent-linu
 
 See [../server/docs/](../server/docs/) for architecture, SIEM integration, security and
 troubleshooting guides.
-
-## Engineering notes
-
-[engineering-notes/](engineering-notes/) holds historical fix reports and root-cause
-analyses. They document how specific problems were diagnosed and resolved, and are kept
-for reference rather than as current setup instructions.
